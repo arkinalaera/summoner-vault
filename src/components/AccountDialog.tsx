@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { Account, RankTier, RankDivision, Region } from "@/types/account";
+import { fetchSummonerData } from "@/lib/riot-api";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +50,8 @@ const regions: Region[] = ["EUW", "EUNE", "NA", "KR", "BR", "LAN", "LAS", "OCE",
 
 export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDialogProps) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<Account>>({
     accountName: "",
     summonerName: "",
@@ -106,6 +111,44 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
                        formData.rankTier !== "Challenger" && 
                        formData.rankTier !== "Unranked";
 
+  const handleFetchFromRiot = async () => {
+    if (!formData.summonerName || !formData.region) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a summoner name and select a region first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsFetching(true);
+    try {
+      const data = await fetchSummonerData(formData.summonerName, formData.region);
+      
+      setFormData(prev => ({
+        ...prev,
+        summonerName: data.summonerName,
+        iconUrl: data.iconUrl,
+        rankTier: data.rankTier as RankTier,
+        rankDivision: data.rankDivision as RankDivision,
+        gamesCount: data.gamesCount,
+      }));
+
+      toast({
+        title: "Success",
+        description: "Account data fetched from Riot API",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch data from Riot API",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -116,11 +159,31 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="summonerName">Summoner Name *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="summonerName">Summoner Name *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFetchFromRiot}
+                  disabled={isFetching}
+                  className="h-7 text-xs"
+                >
+                  {isFetching ? (
+                    <>
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    "Fetch from Riot"
+                  )}
+                </Button>
+              </div>
               <Input
                 id="summonerName"
                 value={formData.summonerName}
                 onChange={(e) => setFormData({ ...formData, summonerName: e.target.value })}
+                placeholder="Faker#KR1"
                 required
               />
             </div>
