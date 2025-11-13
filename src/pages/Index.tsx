@@ -5,6 +5,8 @@ import { AccountCard } from "@/components/AccountCard";
 import { AccountDialog } from "@/components/AccountDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fetchSummonerData } from "@/lib/riot-api";
+import { normalizeDivision,normalizeTier } from "@/lib/riot-api";
 import {
   Select,
   SelectContent,
@@ -45,10 +47,56 @@ const Index = () => {
     applyFilters();
   }, [accounts, searchQuery, filterRank, filterRegion]);
 
-  const loadAccounts = () => {
-    const loadedAccounts = storage.getAccounts();
-    setAccounts(loadedAccounts);
-  };
+ const loadAccounts = async () => {
+  const localAccounts = storage.getAccounts();
+  setAccounts(localAccounts);
+
+  if (localAccounts.length === 0) {
+    setFilteredAccounts([]);
+    return;
+  }
+
+  const updatedAccounts = await Promise.all(
+    localAccounts.map(async (acc): Promise<Account> => {
+      try {
+        const riot = await fetchSummonerData(acc.summonerName, acc.region);
+
+        const soloTier = normalizeTier(riot.soloRankTier);
+        const soloDiv = normalizeDivision(riot.soloRankDivision);
+        const flexTier = normalizeTier(riot.flexRankTier);
+        const flexDiv = normalizeDivision(riot.flexRankDivision);
+
+        const updated: Account = {
+          ...acc,
+          summonerName: riot.summonerName,
+          iconUrl: riot.iconUrl,
+
+          // SOLOQ
+          rankTier: soloTier,
+          rankDivision: soloDiv,
+          gamesCount: riot.soloGamesCount,
+
+          // FLEX
+          flexRankTier: flexTier,
+          flexRankDivision: flexDiv,
+          flexGamesCount: riot.flexGamesCount,
+
+          updatedAt: new Date().toISOString(),
+        };
+
+        // 4. Save local
+        storage.updateAccount(updated);
+
+        return updated;
+      } catch (err) {
+        console.error(`Failed to sync ${acc.summonerName}:`, err);
+        return acc;
+      }
+    })
+  );
+
+  setAccounts(updatedAccounts);
+};
 
   const applyFilters = () => {
     let filtered = [...accounts];
@@ -125,10 +173,6 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-card-foreground">LoL Account Manager</h1>
-              <p className="text-muted-foreground mt-1">
-                Manage your League of Legends accounts
-              </p>
             </div>
             <Button onClick={handleAddNew} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -242,7 +286,7 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-card rounded-xl shadow-card border border-border divide-y">
             {filteredAccounts.map((account) => (
               <AccountCard
                 key={account.id}

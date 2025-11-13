@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import { Eye, EyeOff, Copy, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Clipboard, Edit2 } from "lucide-react";
+import { rankEmblemUrl } from "@/lib/rank";
 
 interface AccountCardProps {
   account: Account;
@@ -12,119 +14,142 @@ interface AccountCardProps {
   onDelete: (id: string) => void;
 }
 
-export const AccountCard = ({ account, onEdit, onDelete }: AccountCardProps) => {
-  const [showPassword, setShowPassword] = useState(false);
+
+export function AccountCard({ account, onEdit, onDelete }: AccountCardProps) {
   const { toast } = useToast();
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: `${label} copied to clipboard`,
-    });
+  const handleCopySummonerName = async () => {
+    try {
+      await navigator.clipboard.writeText(account.summonerName);
+      toast({
+        title: "Copied",
+        description: `Summoner name "${account.summonerName}" copied to clipboard.`,
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Error",
+        description: "Failed to copy summoner name.",
+        variant: "destructive",
+      });
+    }
   };
+  
+    const soloTier = account.rankTier;
+    const flexTier = account.flexRankTier ?? "Unranked";
+
+    const soloEmblemSrc = rankEmblemUrl[soloTier];
+    const flexEmblemSrc = rankEmblemUrl[flexTier];
 
   return (
-    <div className="bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-all duration-300 border border-border">
-      <div className="flex items-start gap-4">
-        {/* Summoner Icon */}
-        <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+    <div className="flex items-center gap-4 px-4 py-3">
+      {/* Icône invocateur */}
+      <div className="flex items-center gap-3 min-w-[220px]">
+        <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center">
           {account.iconUrl ? (
-            <img src={account.iconUrl} alt={account.summonerName} className="w-full h-full object-cover" />
+            <img
+              src={account.iconUrl}
+              alt={account.summonerName}
+              className="w-full h-full object-cover"
+            />
           ) : (
-            <span className="text-2xl font-bold text-muted-foreground">
-              {account.summonerName.charAt(0).toUpperCase()}
+            <span className="text-xs text-muted-foreground">No icon</span>
+          )}
+        </div>
+
+        <div className="flex flex-col">
+          {/* Pseudo cliquable pour copier */}
+          <button
+            type="button"
+            onClick={handleCopySummonerName}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-card-foreground hover:underline decoration-dotted"
+          >
+            {account.summonerName}
+            <Clipboard className="w-3 h-3 opacity-70" />
+          </button>
+
+          <span className="text-xs text-muted-foreground">
+            {account.accountName}
+          </span>
+        </div>
+      </div>
+
+      {/* Rang + logo */}
+      <div className="flex items-center gap-8 min-w-[360px]">
+        {/* SOLOQ */}
+        <div className="flex items-center gap-3">
+          <div className="w-16 h-16 flex items-center justify-center">
+            <img
+              src={soloEmblemSrc}
+              alt={soloTier}
+              className="max-w-full max-h-full object-contain drop-shadow-md"
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs uppercase text-muted-foreground tracking-wide">
+              SoloQ
             </span>
-          )}
-        </div>
-
-        {/* Account Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div>
-              <h3 className="font-semibold text-lg text-card-foreground truncate">
-                {account.summonerName}
-              </h3>
-              {account.accountName && (
-                <p className="text-sm text-muted-foreground">{account.accountName}</p>
-              )}
-            </div>
-            <RankBadge tier={account.rankTier} division={account.rankDivision} />
-          </div>
-
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Region:</span>
-              <span className="font-medium text-card-foreground">{account.region}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Games:</span>
-              <span className="font-medium text-card-foreground">{account.gamesCount}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Login:</span>
-              <span className="font-mono text-card-foreground">••••••</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => copyToClipboard(account.login, "Login")}
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Password:</span>
-              <span className={cn("font-mono text-card-foreground", !showPassword && "select-none")}>
-                {showPassword ? account.password : "••••••••"}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-              </Button>
-              {showPassword && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => copyToClipboard(account.password, "Password")}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {account.notes && (
-            <p className="text-sm text-muted-foreground mb-4 italic">{account.notes}</p>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => onEdit(account)}
-            >
-              <Pencil className="h-3 w-3" />
-              Edit
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 text-destructive hover:text-destructive"
-              onClick={() => onDelete(account.id)}
-            >
-              <Trash2 className="h-3 w-3" />
-              Delete
-            </Button>
+            <span className="text-sm font-medium">
+              {soloTier === "Unranked"
+                ? "Unranked"
+                : `${soloTier} ${account.rankDivision ?? ""}`}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {(account.gamesCount ?? 0)} games
+            </span>
           </div>
         </div>
+
+        {/* FLEX */}
+        <div className="flex items-center gap-3">
+          <div className="w-16 h-16 flex items-center justify-center">
+            <img
+              src={flexEmblemSrc}
+              alt={flexTier}
+              className="max-w-full max-h-full object-contain drop-shadow-md"
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs uppercase text-muted-foreground tracking-wide">
+              Flex
+            </span>
+            <span className="text-sm font-medium">
+              {flexTier === "Unranked"
+                ? "Unranked"
+                : `${flexTier} ${account.flexRankDivision ?? ""}`}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {(account.flexGamesCount ?? 0)} games
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* Région */}
+      <div className="text-sm text-muted-foreground min-w-[80px]">
+        {account.region}
+      </div>
+
+      {/* Actions (login/mdp, edit/delete, etc. à adapter) */}
+      <div className="ml-auto flex items-center gap-2">
+        {/* Tu peux afficher le login/mot de passe masqué ici aussi si tu veux */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onEdit(account)}
+          className="gap-1"
+        >
+          <Edit2 className="w-4 h-4" />
+          Edit
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onDelete(account.id)}
+          className="gap-1 text-destructive border-destructive/40"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete
+        </Button>
       </div>
     </div>
   );

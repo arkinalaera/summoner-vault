@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Account, RankTier, RankDivision, Region } from "@/types/account";
 import { fetchSummonerData } from "@/lib/riot-api";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Eye, EyeOff } from "lucide-react";
 
 interface AccountDialogProps {
   open: boolean;
@@ -44,14 +43,30 @@ const rankTiers: RankTier[] = [
   "Challenger",
 ];
 
-const rankDivisions: RankDivision[] = ["I", "II", "III", "IV"];
+const regions: Region[] = [
+  "EUW",
+  "EUNE",
+  "NA",
+  "KR",
+  "BR",
+  "LAN",
+  "LAS",
+  "OCE",
+  "RU",
+  "TR",
+  "JP",
+];
 
-const regions: Region[] = ["EUW", "EUNE", "NA", "KR", "BR", "LAN", "LAS", "OCE", "RU", "TR", "JP"];
-
-export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDialogProps) => {
+export const AccountDialog = ({
+  open,
+  onOpenChange,
+  account,
+  onSave,
+}: AccountDialogProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const { toast } = useToast();
+
   const [formData, setFormData] = useState<Partial<Account>>({
     accountName: "",
     summonerName: "",
@@ -84,7 +99,7 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const now = new Date().toISOString();
     const savedAccount: Account = {
       id: account?.id || crypto.randomUUID(),
@@ -92,8 +107,8 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
       summonerName: formData.summonerName || "",
       region: formData.region as Region,
       rankTier: formData.rankTier as RankTier,
-      rankDivision: formData.rankDivision,
-      gamesCount: formData.gamesCount || 0,
+      rankDivision: formData.rankDivision as RankDivision | undefined,
+      gamesCount: formData.gamesCount ?? account?.gamesCount ?? 0,
       login: formData.login || "",
       password: formData.password || "",
       iconUrl: formData.iconUrl,
@@ -105,11 +120,6 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
     onSave(savedAccount);
     onOpenChange(false);
   };
-
-  const showDivision = formData.rankTier !== "Master" && 
-                       formData.rankTier !== "Grandmaster" && 
-                       formData.rankTier !== "Challenger" && 
-                       formData.rankTier !== "Unranked";
 
   const handleFetchFromRiot = async () => {
     if (!formData.summonerName || !formData.region) {
@@ -123,15 +133,24 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
 
     setIsFetching(true);
     try {
-      const data = await fetchSummonerData(formData.summonerName, formData.region);
-      
-      setFormData(prev => ({
+      const data = await fetchSummonerData(
+        formData.summonerName,
+        formData.region
+      );
+
+      setFormData((prev) => ({
         ...prev,
         summonerName: data.summonerName,
         iconUrl: data.iconUrl,
-        rankTier: data.rankTier as RankTier,
-        rankDivision: data.rankDivision as RankDivision,
-        gamesCount: data.gamesCount,
+        // Ces champs restent gérés automatiquement, même s'ils ne sont plus dans l'UI
+
+        soloRankTier: data.soloRankTier as RankTier,
+        soloRankDivision : data.soloRankDivision as RankDivision,
+        soloGamesCount: data.soloGamesCount,
+        flexRankTier: data.flexRankTier as RankTier,
+        flexRankDivision: data.flexRankDivision as RankDivision,
+        flexGamesCount: data.flexGamesCount
+
       }));
 
       toast({
@@ -141,7 +160,10 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch data from Riot API",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch data from Riot API",
         variant: "destructive",
       });
     } finally {
@@ -153,7 +175,9 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{account ? "Edit Account" : "Add New Account"}</DialogTitle>
+          <DialogTitle>
+            {account ? "Edit Account" : "Add New Account"}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -182,7 +206,9 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
               <Input
                 id="summonerName"
                 value={formData.summonerName}
-                onChange={(e) => setFormData({ ...formData, summonerName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, summonerName: e.target.value })
+                }
                 placeholder="Faker#KR1"
                 required
               />
@@ -193,82 +219,12 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
               <Input
                 id="accountName"
                 value={formData.accountName}
-                onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, accountName: e.target.value })
+                }
                 placeholder="e.g., Main, Smurf"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="region">Region</Label>
-              <Select
-                value={formData.region}
-                onValueChange={(value) => setFormData({ ...formData, region: value as Region })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((region) => (
-                    <SelectItem key={region} value={region}>
-                      {region}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="rankTier">Rank Tier</Label>
-              <Select
-                value={formData.rankTier}
-                onValueChange={(value) => setFormData({ ...formData, rankTier: value as RankTier })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {rankTiers.map((tier) => (
-                    <SelectItem key={tier} value={tier}>
-                      {tier}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {showDivision && (
-              <div className="space-y-2">
-                <Label htmlFor="rankDivision">Division</Label>
-                <Select
-                  value={formData.rankDivision}
-                  onValueChange={(value) => setFormData({ ...formData, rankDivision: value as RankDivision })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rankDivisions.map((div) => (
-                      <SelectItem key={div} value={div}>
-                        {div}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="gamesCount">Games Played</Label>
-            <Input
-              id="gamesCount"
-              type="number"
-              min="0"
-              value={formData.gamesCount}
-              onChange={(e) => setFormData({ ...formData, gamesCount: parseInt(e.target.value) || 0 })}
-            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -277,7 +233,9 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
               <Input
                 id="login"
                 value={formData.login}
-                onChange={(e) => setFormData({ ...formData, login: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, login: e.target.value })
+                }
                 required
               />
             </div>
@@ -289,7 +247,9 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
                   required
                 />
                 <Button
@@ -299,7 +259,11 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
                   className="absolute right-1 top-1 h-7 w-7"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -310,7 +274,9 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
             <Input
               id="iconUrl"
               value={formData.iconUrl}
-              onChange={(e) => setFormData({ ...formData, iconUrl: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, iconUrl: e.target.value })
+              }
               placeholder="https://..."
             />
           </div>
@@ -320,17 +286,25 @@ export const AccountDialog = ({ open, onOpenChange, account, onSave }: AccountDi
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
               placeholder="Any additional notes..."
               rows={3}
             />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit">{account ? "Save Changes" : "Add Account"}</Button>
+            <Button type="submit">
+              {account ? "Save Changes" : "Add Account"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -7,85 +7,77 @@ All colors MUST be HSL.
 */
 
 @layer base {
-  :root {
-    --background: 220 20% 97%;
-    --foreground: 220 15% 15%;
+  /* ========== THEME SYSTEM (dpm-like) ========== */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 10%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 10%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 10%;
 
-    --primary: 210 85% 55%;
-    --primary-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
 
-    --secondary: 220 15% 92%;
-    --secondary-foreground: 220 15% 15%;
+  --primary: 222 84% 56%;
+  --primary-foreground: 0 0% 100%;
 
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 10% 45%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 17%;
 
-    --accent: 45 95% 60%;
-    --accent-foreground: 220 15% 15%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 17%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
-    --ring: 210 85% 55%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.75rem;
+  --ring: 222 84% 56%;
 
-    /* Custom gaming theme tokens */
-    --rank-iron: 160 10% 50%;
-    --rank-bronze: 25 75% 47%;
-    --rank-silver: 210 15% 70%;
-    --rank-gold: 45 95% 60%;
-    --rank-platinum: 180 50% 55%;
-    --rank-emerald: 160 70% 45%;
-    --rank-diamond: 210 75% 65%;
-    --rank-master: 280 50% 60%;
-    --rank-grandmaster: 0 70% 55%;
-    --rank-challenger: 35 100% 60%;
+  --radius: 0.75rem;
 
-    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
-  }
+  --card-shadow: 0 10px 20px rgba(0,0,0,0.05);
+  --card-shadow-hover: 0 15px 30px rgba(0,0,0,0.1);
+}
 
-  .dark {
-    --background: 220 20% 10%;
-    --foreground: 220 10% 95%;
+/* ========== DARK MODE — inspired by dpm.lol ========== */
+.dark {
+  --background: 230 35% 7%;
+  --foreground: 220 30% 96%;
 
-    --card: 220 18% 14%;
-    --card-foreground: 220 10% 95%;
+  --card: 230 32% 12%;
+  --card-foreground: 220 30% 96%;
 
-    --popover: 220 18% 14%;
-    --popover-foreground: 220 10% 95%;
+  --popover: 230 32% 12%;
+  --popover-foreground: 220 30% 96%;
 
-    --primary: 210 85% 55%;
-    --primary-foreground: 0 0% 100%;
+  --border: 230 25% 20%;
+  --input: 230 25% 20%;
 
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 220 10% 95%;
+  --primary: 195 90% 60%;
+  --primary-foreground: 210 40% 8%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 60%;
+  --secondary: 232 30% 18%;
+  --secondary-foreground: 220 30% 96%;
 
-    --accent: 45 95% 60%;
-    --accent-foreground: 220 15% 10%;
+  --muted: 230 20% 20%;
+  --muted-foreground: 230 15% 65%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+  --accent: 200 90% 60%;
+  --accent-foreground: 210 40% 8%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 210 85% 55%;
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 210 40% 98%;
 
-    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
-  }
+  --ring: 195 90% 60%;
+
+  --card-shadow: 0 30px 60px rgba(0,0,0,0.45);
+  --card-shadow-hover: 0 45px 80px rgba(0,0,0,0.65);
+}
 }
 
 @layer base {

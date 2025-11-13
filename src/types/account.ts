@@ -20,9 +20,17 @@ export interface Account {
   accountName: string;
   summonerName: string;
   region: Region;
+
+  // SOLOQ
   rankTier: RankTier;
   rankDivision?: RankDivision;
   gamesCount: number;
+
+  // FLEX
+  flexRankTier?: RankTier;
+  flexRankDivision?: RankDivision;
+  flexGamesCount?: number;
+
   login: string;
   password: string;
   iconUrl?: string;
