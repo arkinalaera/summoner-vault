@@ -1,21 +1,29 @@
-import { useState } from "react";
 import { Account } from "@/types/account";
-import { RankBadge } from "./RankBadge";
 import { Button } from "./ui/button";
-import { Eye, EyeOff, Copy, Pencil, Trash2 } from "lucide-react";
+import { Clipboard, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Clipboard, Edit2 } from "lucide-react";
 import { rankEmblemUrl } from "@/lib/rank";
 
 interface AccountCardProps {
   account: Account;
   onEdit: (account: Account) => void;
   onDelete: (id: string) => void;
+  onLogin: (account: Account) => void;
+  loginState?: LoginStatusPayload;
+  loginDisabled?: boolean;
+  loginDisabledReason?: string;
 }
 
-
-export function AccountCard({ account, onEdit, onDelete }: AccountCardProps) {
+export function AccountCard({
+  account,
+  onEdit,
+  onDelete,
+  onLogin,
+  loginState,
+  loginDisabled = false,
+  loginDisabledReason,
+}: AccountCardProps) {
   const { toast } = useToast();
 
   const handleCopySummonerName = async () => {
@@ -34,12 +42,32 @@ export function AccountCard({ account, onEdit, onDelete }: AccountCardProps) {
       });
     }
   };
-  
-    const soloTier = account.rankTier;
-    const flexTier = account.flexRankTier ?? "Unranked";
 
-    const soloEmblemSrc = rankEmblemUrl[soloTier];
-    const flexEmblemSrc = rankEmblemUrl[flexTier];
+  const soloTier = account.rankTier;
+  const flexTier = account.flexRankTier ?? "Unranked";
+
+  const soloEmblemSrc = rankEmblemUrl[soloTier];
+  const flexEmblemSrc = rankEmblemUrl[flexTier];
+
+  const isLoginInProgress =
+    !!loginState && loginState.kind !== "error" && loginState.kind !== "success";
+  const loginStatusMessage =
+    loginState?.message ??
+    (loginState?.kind === "error"
+      ? "Échec de la connexion."
+      : loginState?.kind === "success"
+      ? "Connexion lancée sur League."
+      : undefined);
+  const loginButtonDisabled = loginDisabled || isLoginInProgress;
+  const loginButtonLabel = isLoginInProgress ? "Connexion..." : "Se connecter";
+  const loginStatusTone =
+    loginState?.kind === "error"
+      ? "text-destructive"
+      : loginState?.kind === "success"
+      ? "text-emerald-400"
+      : "text-muted-foreground";
+  const loginButtonTitle =
+    loginDisabledReason ?? (isLoginInProgress ? "Connexion en cours..." : undefined);
 
   return (
     <div className="flex items-center gap-4 px-4 py-3">
@@ -124,33 +152,51 @@ export function AccountCard({ account, onEdit, onDelete }: AccountCardProps) {
           </div>
         </div>
       </div>
+
       {/* Région */}
       <div className="text-sm text-muted-foreground min-w-[80px]">
         {account.region}
       </div>
 
-      {/* Actions (login/mdp, edit/delete, etc. à adapter) */}
-      <div className="ml-auto flex items-center gap-2">
-        {/* Tu peux afficher le login/mot de passe masqué ici aussi si tu veux */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onEdit(account)}
-          className="gap-1"
-        >
-          <Edit2 className="w-4 h-4" />
-          Edit
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onDelete(account.id)}
-          className="gap-1 text-destructive border-destructive/40"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </Button>
+      {/* Actions */}
+      <div className="ml-auto flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+        <div className="flex flex-col gap-1 min-w-[170px]">
+          <Button
+            type="button"
+            size="sm"
+            className="gap-2"
+            onClick={() => onLogin(account)}
+            disabled={loginButtonDisabled}
+            title={loginButtonTitle}
+          >
+            {loginButtonLabel}
+          </Button>
+          {loginStatusMessage && (
+            <span className={cn("text-xs", loginStatusTone)}>{loginStatusMessage}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(account)}
+            className="gap-1"
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(account.id)}
+            className="gap-1 text-destructive border-destructive/40"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </Button>
+        </div>
       </div>
     </div>
   );
-};
+}

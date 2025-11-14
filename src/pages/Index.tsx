@@ -43,8 +43,6 @@ const Index = () => {
   const [loginStatuses, setLoginStatuses] = useState<
     Record<string, LoginStatusPayload | undefined>
   >({});
-  const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
-  const [isTogglingAutoAccept, setIsTogglingAutoAccept] = useState(false);
   const { toast } = useToast();
   const isLeaguePathMissing = leaguePath.trim().length === 0;
   const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
@@ -53,8 +51,6 @@ const Index = () => {
     : isPersistingLeaguePath
     ? "Sauvegarde du chemin en cours..."
     : undefined;
-  const disableAutoAcceptToggle =
-    isLeaguePathMissing || isPersistingLeaguePath || isTogglingAutoAccept;
 
   useEffect(() => {
     loadAccounts();
@@ -86,24 +82,6 @@ const Index = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    const api = window.api;
-    if (!api?.getAutoAcceptEnabled) {
-      return;
-    }
-
-    const fetchAutoAccept = async () => {
-      try {
-        const enabled = await api.getAutoAcceptEnabled();
-        setAutoAcceptEnabled(!!enabled);
-      } catch (error) {
-        console.error("Failed to retrieve auto accept flag:", error);
-      }
-    };
-
-    fetchAutoAccept();
   }, []);
 
   useEffect(() => {
@@ -291,42 +269,6 @@ const Index = () => {
     setDialogOpen(true);
   };
 
-  const handleToggleAutoAccept = async (nextValue: boolean) => {
-    const api = window.api;
-    if (!api?.setAutoAcceptEnabled) {
-      toast({
-        title: "Fonctionnalité indisponible",
-        description: "Impossible de modifier l'auto-accept sans l'API desktop.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsTogglingAutoAccept(true);
-    try {
-      const result = await api.setAutoAcceptEnabled(nextValue);
-      setAutoAcceptEnabled(result);
-      toast({
-        title: "Auto accept",
-        description: result
-          ? "L'acceptation automatique est activée."
-          : "L'acceptation automatique est désactivée.",
-      });
-    } catch (error) {
-      console.error("Failed to toggle auto accept:", error);
-      toast({
-        title: "Impossible de modifier l'auto accept",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Erreur inconnue lors du changement d'Ã©tat.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTogglingAutoAccept(false);
-    }
-  };
-
   const handleLoginAccount = async (account: Account) => {
     const api = window.api;
     if (!api?.loginAccount) {
@@ -394,8 +336,9 @@ const Index = () => {
       <header className="border-b border-border bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
-            </div>
+            <Button asChild>
+              <Link to="/settings">Paramètres</Link>
+            </Button>
             <Button onClick={handleAddNew} className="gap-2">
               <Plus className="h-4 w-4" />
               Add Account

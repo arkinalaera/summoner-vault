@@ -1,11 +1,22 @@
 // electron-main.cjs
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 const handler = require("serve-handler");
+const { LoginManager } = require("./login-manager.cjs");
+const { ReadyCheckService } = require("./ready-check-service.cjs");
 
 let mainWindow;
 let server;
+let settingsFilePath = "";
+let settings = {
+  leaguePath: "",
+  autoAcceptEnabled: false,
+};
+let ipcRegistered = false;
+let loginManager;
+let readyCheckService;
 
 const isDev = !app.isPackaged; // true en dev, false dans le .exe
 
@@ -20,6 +31,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
@@ -50,7 +62,132 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+async function loadSettings() {
+  if (!settingsFilePath) return;
+  try {
+    const raw = await fs.promises.readFile(settingsFilePath, "utf-8");
+    const parsed = JSON.parse(raw);
+    settings = {
+      ...settings,
+      ...parsed,
+    };
+  } catch (error) {
+    if (error && error.code !== "ENOENT") {
+      console.error("Failed to read settings:", error);
+    }
+  }
+}
+
+async function saveSettings() {
+  if (!settingsFilePath) return;
+  try {
+    await fs.promises.mkdir(path.dirname(settingsFilePath), { recursive: true });
+    await fs.promises.writeFile(
+      settingsFilePath,
+      JSON.stringify(settings, null, 2),
+      "utf-8"
+    );
+  } catch (error) {
+    console.error("Failed to persist settings:", error);
+  }
+}
+
+function sendLoginStatus(payload) {
+  if (!mainWindow) return;
+  mainWindow.webContents.send("lol:login-status", payload);
+}
+
+function sendReadyStatus(payload) {
+  if (!mainWindow) return;
+  mainWindow.webContents.send("lol:ready-status", payload);
+}
+
+function registerIpcHandlers() {
+  if (ipcRegistered) return;
+  ipcRegistered = true;
+  if (!loginManager) {
+    loginManager = new LoginManager(sendLoginStatus);
+  }
+  if (!readyCheckService) {
+    readyCheckService = new ReadyCheckService(sendReadyStatus);
+    readyCheckService.setLeaguePath(settings.leaguePath);
+    readyCheckService.setAutoAcceptEnabled(settings.autoAcceptEnabled);
+    readyCheckService.start();
+  }
+
+  ipcMain.handle("lol:path:get", async () => {
+    return settings.leaguePath || null;
+  });
+
+  ipcMain.handle("lol:path:set", async (_event, nextPath) => {
+    settings.leaguePath = typeof nextPath === "string" ? nextPath : "";
+    await saveSettings();
+    if (readyCheckService) {
+      readyCheckService.setLeaguePath(settings.leaguePath);
+    }
+    return settings.leaguePath || null;
+  });
+
+  ipcMain.handle("lol:path:select", async () => {
+    const browser = BrowserWindow.getFocusedWindow() || mainWindow;
+    const result = await dialog.showOpenDialog(browser, {
+      title: "Sélectionner RiotClientServices.exe",
+      properties: ["openFile"],
+      filters: [
+        {
+          name: "Riot Client",
+          extensions: ["exe"],
+        },
+      ],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    const selectedPath = result.filePaths[0];
+    settings.leaguePath = selectedPath;
+    await saveSettings();
+    if (readyCheckService) {
+      readyCheckService.setLeaguePath(settings.leaguePath);
+    }
+    return selectedPath;
+  });
+
+  ipcMain.handle("lol:auto-accept:get", async () => {
+    return !!settings.autoAcceptEnabled;
+  });
+
+  ipcMain.handle("lol:auto-accept:set", async (_event, enabled) => {
+    settings.autoAcceptEnabled = !!enabled;
+    await saveSettings();
+    if (readyCheckService) {
+      readyCheckService.setAutoAcceptEnabled(settings.autoAcceptEnabled);
+    }
+    return settings.autoAcceptEnabled;
+  });
+
+  ipcMain.handle("lol:account:login", async (_event, payload) => {
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Informations de compte invalides.");
+    }
+
+    const { accountId, login, password, region } = payload;
+
+    await loginManager.login({
+      accountId,
+      login,
+      password,
+      region,
+      leaguePath: settings.leaguePath,
+    });
+  });
+}
+
+app.whenReady().then(async () => {
+  settingsFilePath = path.join(app.getPath("userData"), "settings.json");
+  await loadSettings();
+  registerIpcHandlers();
   createWindow();
 
   app.on("activate", () => {
@@ -59,6 +196,9 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  if (readyCheckService) {
+    readyCheckService.stop();
+  }
   if (process.platform !== "darwin") {
     app.quit();
   }
@@ -68,4 +208,9 @@ app.on("quit", () => {
   if (server) {
     server.close();
   }
+  if (readyCheckService) {
+    readyCheckService.stop();
+  }
 });
+
+
