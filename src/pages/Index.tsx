@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Account, RankTier, Region } from "@/types/account";
 import { storage } from "@/lib/storage";
 import { AccountCard } from "@/components/AccountCard";
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -37,7 +38,23 @@ const Index = () => {
   const [editingAccount, setEditingAccount] = useState<Account | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
+  const [leaguePath, setLeaguePath] = useState("");
+  const [isPersistingLeaguePath, setIsPersistingLeaguePath] = useState(false);
+  const [loginStatuses, setLoginStatuses] = useState<
+    Record<string, LoginStatusPayload | undefined>
+  >({});
+  const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
+  const [isTogglingAutoAccept, setIsTogglingAutoAccept] = useState(false);
   const { toast } = useToast();
+  const isLeaguePathMissing = leaguePath.trim().length === 0;
+  const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
+  const loginDisabledReason = isLeaguePathMissing
+    ? "Définis d'abord le chemin League of Legends."
+    : isPersistingLeaguePath
+    ? "Sauvegarde du chemin en cours..."
+    : undefined;
+  const disableAutoAcceptToggle =
+    isLeaguePathMissing || isPersistingLeaguePath || isTogglingAutoAccept;
 
   useEffect(() => {
     loadAccounts();
@@ -46,6 +63,114 @@ const Index = () => {
   useEffect(() => {
     applyFilters();
   }, [accounts, searchQuery, filterRank, filterRegion]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLeaguePath = async () => {
+      const api = window.api;
+      if (!api?.getLeaguePath) {
+        return;
+      }
+      try {
+        const storedPath = await api.getLeaguePath();
+        if (storedPath && isMounted) {
+          setLeaguePath(storedPath);
+        }
+      } catch (error) {
+        console.error("Failed to retrieve League path:", error);
+      }
+    };
+
+    fetchLeaguePath();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const api = window.api;
+    if (!api?.getAutoAcceptEnabled) {
+      return;
+    }
+
+    const fetchAutoAccept = async () => {
+      try {
+        const enabled = await api.getAutoAcceptEnabled();
+        setAutoAcceptEnabled(!!enabled);
+      } catch (error) {
+        console.error("Failed to retrieve auto accept flag:", error);
+      }
+    };
+
+    fetchAutoAccept();
+  }, []);
+
+  useEffect(() => {
+    const api = window.api;
+    if (!api?.onLoginStatus) {
+      return;
+    }
+
+    const unsubscribe = api.onLoginStatus((payload) => {
+      setLoginStatuses((previous) => ({
+        ...previous,
+        [payload.accountId]: payload,
+      }));
+
+      if (payload.kind === "error") {
+        toast({
+          title: "Connexion impossible",
+          description:
+            payload.message ?? "Une erreur est survenue lors de la connexion.",
+          variant: "destructive",
+        });
+      } else if (payload.kind === "success") {
+        toast({
+          title: "Connexion lancé",
+          description:
+            payload.message ?? "League of Legends traite la connexion.",
+        });
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [toast]);
+
+  useEffect(() => {
+    const api = window.api;
+    if (!api?.onReadyStatus) {
+      return;
+    }
+
+    const unsubscribe = api.onReadyStatus((payload) => {
+      if (!payload) return;
+      const message =
+        payload.message ?? "Une vérification de partie a été acceptée.";
+      if (payload.kind === "error") {
+        toast({
+          title: "Auto accept",
+          description: message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Auto accept",
+          description: message,
+        });
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [toast]);
 
  const loadAccounts = async () => {
   const localAccounts = storage.getAccounts();
@@ -166,6 +291,103 @@ const Index = () => {
     setDialogOpen(true);
   };
 
+  const handleToggleAutoAccept = async (nextValue: boolean) => {
+    const api = window.api;
+    if (!api?.setAutoAcceptEnabled) {
+      toast({
+        title: "Fonctionnalité indisponible",
+        description: "Impossible de modifier l'auto-accept sans l'API desktop.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTogglingAutoAccept(true);
+    try {
+      const result = await api.setAutoAcceptEnabled(nextValue);
+      setAutoAcceptEnabled(result);
+      toast({
+        title: "Auto accept",
+        description: result
+          ? "L'acceptation automatique est activée."
+          : "L'acceptation automatique est désactivée.",
+      });
+    } catch (error) {
+      console.error("Failed to toggle auto accept:", error);
+      toast({
+        title: "Impossible de modifier l'auto accept",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Erreur inconnue lors du changement d'Ã©tat.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingAutoAccept(false);
+    }
+  };
+
+  const handleLoginAccount = async (account: Account) => {
+    const api = window.api;
+    if (!api?.loginAccount) {
+      toast({
+        title: "Desktop API indisponible",
+        description: "La fonctionnalité de connexion est inaccessible.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isLeaguePathMissing) {
+      toast({
+        title: "Chemin League requis",
+        description:
+          "Merci de renseigner le chemin complet vers RiotClientServices.exe avant de lancer une connexion.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoginStatuses((previous) => ({
+      ...previous,
+      [account.id]: {
+        accountId: account.id,
+        step: "renderer-start",
+        kind: "info",
+        message: "Initialisation de la connexion",
+      },
+    }));
+
+    try {
+      await api.loginAccount({
+        accountId: account.id,
+        login: account.login,
+        password: account.password,
+        region: account.region,
+      });
+    } catch (error) {
+      console.error("Failed to trigger account login:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Une erreur inconnue est survenue.";
+      setLoginStatuses((previous) => ({
+        ...previous,
+        [account.id]: {
+          accountId: account.id,
+          step: "renderer-error",
+          kind: "error",
+          message,
+        },
+      }));
+      toast({
+        title: "Connexion a échouée",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -182,8 +404,8 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Filters */}
         <div className="bg-card rounded-xl p-6 shadow-card border border-border mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Filter className="h-5 w-5 text-muted-foreground" />
@@ -293,6 +515,10 @@ const Index = () => {
                 account={account}
                 onEdit={handleEditAccount}
                 onDelete={handleDeleteAccount}
+                onLogin={handleLoginAccount}
+                loginState={loginStatuses[account.id]}
+                loginDisabled={disableLoginButtons}
+                loginDisabledReason={loginDisabledReason}
               />
             ))}
           </div>
