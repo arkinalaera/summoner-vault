@@ -24,7 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, Settings } from "lucide-react";
+import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
@@ -43,6 +44,7 @@ const Index = () => {
   const [loginStatuses, setLoginStatuses] = useState<
     Record<string, LoginStatusPayload | undefined>
   >({});
+  const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null);
   const { toast } = useToast();
   const isLeaguePathMissing = leaguePath.trim().length === 0;
   const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
@@ -269,6 +271,22 @@ const Index = () => {
     setDialogOpen(true);
   };
 
+  const moveAccount = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    setAccounts((previous) => {
+      const sourceIndex = previous.findIndex((acc) => acc.id === sourceId);
+      const targetIndex = previous.findIndex((acc) => acc.id === targetId);
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return previous;
+      }
+      const updated = [...previous];
+      const [removed] = updated.splice(sourceIndex, 1);
+      updated.splice(targetIndex, 0, removed);
+      storage.saveAccounts(updated);
+      return updated;
+    });
+  };
+
   const handleLoginAccount = async (account: Account) => {
     const api = window.api;
     if (!api?.loginAccount) {
@@ -330,19 +348,48 @@ const Index = () => {
     }
   };
 
+  const handleDragStartAccount = (account: Account) => {
+    setDraggingAccountId(account.id);
+  };
+
+  const handleDragEnterAccount = (account: Account) => {
+    if (!draggingAccountId) return;
+    moveAccount(draggingAccountId, account.id);
+  };
+
+  const handleDragEndAccount = () => {
+    setDraggingAccountId(null);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <Button asChild>
-              <Link to="/settings">Paramètres</Link>
-            </Button>
-            <Button onClick={handleAddNew} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Account
-            </Button>
+            <div className="flex items-center gap-3">
+              <img
+                src={chestIcon}
+                alt="LoL Vault"
+                className="h-12 w-12"
+              />
+              <div className="flex flex-col">
+                <h1 className="text-lg font-semibold text-card-foreground">
+                  LoL Account Manager
+                </h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleAddNew} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Account
+              </Button>
+              <Button variant="secondary" size="icon" asChild>
+                <Link to="/settings">
+                  <Settings className="h-6 w-6" />
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -462,6 +509,10 @@ const Index = () => {
                 loginState={loginStatuses[account.id]}
                 loginDisabled={disableLoginButtons}
                 loginDisabledReason={loginDisabledReason}
+                draggable
+                onDragStart={handleDragStartAccount}
+                onDragEnter={handleDragEnterAccount}
+                onDragEnd={handleDragEndAccount}
               />
             ))}
           </div>

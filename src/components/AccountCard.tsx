@@ -13,6 +13,10 @@ interface AccountCardProps {
   loginState?: LoginStatusPayload;
   loginDisabled?: boolean;
   loginDisabledReason?: string;
+  draggable?: boolean;
+  onDragStart?: (account: Account) => void;
+  onDragEnter?: (account: Account) => void;
+  onDragEnd?: () => void;
 }
 
 export function AccountCard({
@@ -23,6 +27,10 @@ export function AccountCard({
   loginState,
   loginDisabled = false,
   loginDisabledReason,
+  draggable = false,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
 }: AccountCardProps) {
   const { toast } = useToast();
 
@@ -70,7 +78,17 @@ export function AccountCard({
     loginDisabledReason ?? (isLoginInProgress ? "Connexion en cours..." : undefined);
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3">
+    <div
+      className="flex items-center gap-4 px-4 py-3"
+      draggable={draggable}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        onDragStart?.(account);
+      }}
+      onDragEnter={() => onDragEnter?.(account)}
+      onDragEnd={() => onDragEnd?.()}
+      onDragOver={(event) => event.preventDefault()}
+    >
       {/* Icône invocateur */}
       <div className="flex items-center gap-3 min-w-[220px]">
         <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center">

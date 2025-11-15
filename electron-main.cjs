@@ -28,6 +28,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: "#050816",
     title: "LoL Account Manager",
+    icon: path.join(__dirname, "resources", "chest.ico"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -212,5 +213,4 @@ app.on("quit", () => {
     readyCheckService.stop();
   }
 });
-
 
