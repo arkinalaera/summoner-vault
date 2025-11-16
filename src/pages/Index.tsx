@@ -5,6 +5,7 @@ import { AccountCard } from "@/components/AccountCard";
 import { AccountDialog } from "@/components/AccountDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { fetchSummonerData } from "@/lib/riot-api";
 import { normalizeDivision,normalizeTier } from "@/lib/riot-api";
 import {
@@ -24,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Filter, Settings } from "lucide-react";
+import { Plus, Search, Filter, Settings, LogOut } from "lucide-react";
 import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -45,6 +46,8 @@ const Index = () => {
     Record<string, LoginStatusPayload | undefined>
   >({});
   const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null);
+  const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
+  const [isTogglingAutoAccept, setIsTogglingAutoAccept] = useState(false);
   const { toast } = useToast();
   const isLeaguePathMissing = leaguePath.trim().length === 0;
   const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
@@ -152,6 +155,24 @@ const Index = () => {
     };
   }, [toast]);
 
+  useEffect(() => {
+    const api = window.api;
+    if (!api?.getAutoAcceptEnabled) {
+      return;
+    }
+
+    const fetchAutoAccept = async () => {
+      try {
+        const enabled = await api.getAutoAcceptEnabled();
+        setAutoAcceptEnabled(!!enabled);
+      } catch (error) {
+        console.error("Failed to retrieve auto accept flag:", error);
+      }
+    };
+
+    fetchAutoAccept();
+  }, []);
+
  const loadAccounts = async () => {
   const localAccounts = storage.getAccounts();
   setAccounts(localAccounts);
@@ -161,44 +182,49 @@ const Index = () => {
     return;
   }
 
-  const updatedAccounts = await Promise.all(
-    localAccounts.map(async (acc): Promise<Account> => {
-      try {
-        const riot = await fetchSummonerData(acc.summonerName, acc.region);
+  // Process accounts sequentially to respect rate limits
+  const updatedAccounts: Account[] = [];
 
-        const soloTier = normalizeTier(riot.soloRankTier);
-        const soloDiv = normalizeDivision(riot.soloRankDivision);
-        const flexTier = normalizeTier(riot.flexRankTier);
-        const flexDiv = normalizeDivision(riot.flexRankDivision);
+  for (let i = 0; i < localAccounts.length; i++) {
+    const acc = localAccounts[i];
 
-        const updated: Account = {
-          ...acc,
-          summonerName: riot.summonerName,
-          iconUrl: riot.iconUrl,
+    try {
+      const riot = await fetchSummonerData(acc.summonerName, acc.region);
 
-          // SOLOQ
-          rankTier: soloTier,
-          rankDivision: soloDiv,
-          gamesCount: riot.soloGamesCount,
+      const soloTier = normalizeTier(riot.soloRankTier);
+      const soloDiv = normalizeDivision(riot.soloRankDivision);
+      const flexTier = normalizeTier(riot.flexRankTier);
+      const flexDiv = normalizeDivision(riot.flexRankDivision);
 
-          // FLEX
-          flexRankTier: flexTier,
-          flexRankDivision: flexDiv,
-          flexGamesCount: riot.flexGamesCount,
+      const updated: Account = {
+        ...acc,
+        summonerName: riot.summonerName,
+        iconUrl: riot.iconUrl,
 
-          updatedAt: new Date().toISOString(),
-        };
+        // SOLOQ
+        rankTier: soloTier,
+        rankDivision: soloDiv,
+        gamesCount: riot.soloGamesCount,
 
-        // 4. Save local
-        storage.updateAccount(updated);
+        // FLEX
+        flexRankTier: flexTier,
+        flexRankDivision: flexDiv,
+        flexGamesCount: riot.flexGamesCount,
 
-        return updated;
-      } catch (err) {
-        console.error(`Failed to sync ${acc.summonerName}:`, err);
-        return acc;
-      }
-    })
-  );
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Save to storage and add to results
+      storage.updateAccount(updated);
+      updatedAccounts.push(updated);
+
+      // Update UI progressively as each account is processed
+      setAccounts([...updatedAccounts, ...localAccounts.slice(i + 1)]);
+    } catch (err) {
+      console.error(`Failed to sync ${acc.summonerName}:`, err);
+      updatedAccounts.push(acc);
+    }
+  }
 
   setAccounts(updatedAccounts);
 };
@@ -361,6 +387,51 @@ const Index = () => {
     setDraggingAccountId(null);
   };
 
+  const handleToggleAutoAccept = async (nextValue: boolean) => {
+    const api = window.api;
+    if (!api?.setAutoAcceptEnabled) {
+      toast({
+        title: "Fonctionnalité indisponible",
+        description: "Impossible de modifier l'auto-accept sans l'API desktop.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTogglingAutoAccept(true);
+    try {
+      const result = await api.setAutoAcceptEnabled(nextValue);
+      setAutoAcceptEnabled(result);
+      toast({
+        title: "Auto accept",
+        description: result
+          ? "L'acceptation automatique est activée."
+          : "L'acceptation automatique est désactivée.",
+      });
+    } catch (error) {
+      console.error("Failed to toggle auto accept:", error);
+      toast({
+        title: "Impossible de modifier l'auto accept",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Erreur inconnue lors du changement d'état.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingAutoAccept(false);
+    }
+  };
+
+  const handleQuitApp = async () => {
+    const api = window.api;
+    if (!api?.quitApp) {
+      return;
+    }
+
+    await api.quitApp();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -379,7 +450,23 @@ const Index = () => {
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2" title="Activer cette fonctionnalité pour accepter automatiquement les matchs">
+                <Checkbox
+                  id="auto-accept-header"
+                  checked={autoAcceptEnabled}
+                  onCheckedChange={(checked) =>
+                    handleToggleAutoAccept(Boolean(checked))
+                  }
+                  disabled={isTogglingAutoAccept}
+                />
+                <label
+                  htmlFor="auto-accept-header"
+                  className="text-sm font-medium text-card-foreground cursor-pointer"
+                >
+                  Auto Accept
+                </label>
+              </div>
               <Button onClick={handleAddNew} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Add Account
@@ -388,6 +475,14 @@ const Index = () => {
                 <Link to="/settings">
                   <Settings className="h-6 w-6" />
                 </Link>
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={handleQuitApp}
+                title="Quitter l'application"
+              >
+                <LogOut className="h-5 w-5" />
               </Button>
             </div>
           </div>

@@ -9,6 +9,7 @@ const API_CHANNELS = {
   readyStatus: "lol:ready-status",
   autoAcceptGet: "lol:auto-accept:get",
   autoAcceptSet: "lol:auto-accept:set",
+  appQuit: "app:quit",
 };
 
 contextBridge.exposeInMainWorld("api", {
@@ -29,6 +30,9 @@ contextBridge.exposeInMainWorld("api", {
   },
   setAutoAcceptEnabled(nextValue) {
     return ipcRenderer.invoke(API_CHANNELS.autoAcceptSet, nextValue);
+  },
+  quitApp() {
+    return ipcRenderer.invoke(API_CHANNELS.appQuit);
   },
   onLoginStatus(callback) {
     if (typeof callback !== "function") {

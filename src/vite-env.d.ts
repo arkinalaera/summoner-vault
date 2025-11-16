@@ -29,6 +29,7 @@ declare global {
     loginAccount: (payload: LoginAccountPayload) => Promise<void>;
     getAutoAcceptEnabled: () => Promise<boolean>;
     setAutoAcceptEnabled: (next: boolean) => Promise<boolean>;
+    quitApp: () => Promise<void>;
     onLoginStatus: (
       callback: (payload: LoginStatusPayload) => void
     ) => (() => void) | void;

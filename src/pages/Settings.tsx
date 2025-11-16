@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { FolderOpen, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -9,11 +8,7 @@ import { Link } from "react-router-dom";
 const Settings = () => {
   const [leaguePath, setLeaguePath] = useState("");
   const [isPersistingLeaguePath, setIsPersistingLeaguePath] = useState(false);
-  const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
-  const [isTogglingAutoAccept, setIsTogglingAutoAccept] = useState(false);
   const { toast } = useToast();
-  const disableAutoAcceptToggle =
-    isPersistingLeaguePath || isTogglingAutoAccept;
 
   useEffect(() => {
     const api = window.api;
@@ -33,24 +28,6 @@ const Settings = () => {
     };
 
     fetchLeaguePath();
-  }, []);
-
-  useEffect(() => {
-    const api = window.api;
-    if (!api?.getAutoAcceptEnabled) {
-      return;
-    }
-
-    const fetchAutoAccept = async () => {
-      try {
-        const enabled = await api.getAutoAcceptEnabled();
-        setAutoAcceptEnabled(!!enabled);
-      } catch (error) {
-        console.error("Failed to retrieve auto accept flag:", error);
-      }
-    };
-
-    fetchAutoAccept();
   }, []);
 
   const saveLeaguePath = async (
@@ -129,42 +106,6 @@ const Settings = () => {
     }
   };
 
-  const handleToggleAutoAccept = async (nextValue: boolean) => {
-    const api = window.api;
-    if (!api?.setAutoAcceptEnabled) {
-      toast({
-        title: "Fonctionnalité indisponible",
-        description: "Impossible de modifier l'auto-accept sans l'API desktop.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsTogglingAutoAccept(true);
-    try {
-      const result = await api.setAutoAcceptEnabled(nextValue);
-      setAutoAcceptEnabled(result);
-      toast({
-        title: "Auto accept",
-        description: result
-          ? "L'acceptation automatique est activée."
-          : "L'acceptation automatique est désactivée.",
-      });
-    } catch (error) {
-      console.error("Failed to toggle auto accept:", error);
-      toast({
-        title: "Impossible de modifier l'auto accept",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Erreur inconnue lors du changement d'état.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTogglingAutoAccept(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -212,29 +153,6 @@ const Settings = () => {
           <p className="text-xs text-muted-foreground">
             Ce chemin sera réutilisé lors des prochains lancements.
           </p>
-
-          <div className="flex items-start gap-3 pt-4">
-            <Checkbox
-              id="auto-accept"
-              checked={autoAcceptEnabled}
-              onCheckedChange={(checked) =>
-                handleToggleAutoAccept(Boolean(checked))
-              }
-              disabled={disableAutoAcceptToggle}
-            />
-            <div className="flex flex-col">
-              <label
-                htmlFor="auto-accept"
-                className="font-medium text-sm text-card-foreground"
-              >
-                Accepter automatiquement les files
-              </label>
-              <span className="text-xs text-muted-foreground">
-                Nécessite que le Riot Client soit ouvert et connecté. Nous
-                accepterons automatiquement les ready checks.
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -23,7 +23,7 @@ const DEFAULT_RESOURCES_DIR = fs.existsSync(LOCAL_RESOURCES_DIR)
 const FOCUS_TEMPLATE = "riot-login-username.png";
 const WINDOW_POLL_TIMEOUT_MS = 90_000;
 const WINDOW_POLL_INTERVAL_MS = 1_000;
-const POST_FOCUS_SLEEP_MS = 2500;
+const POST_FOCUS_SLEEP_MS = 2000;
 const FOCUS_DETECTION_TIMEOUT_MS = 6000;
 
 if (fs.existsSync(DEFAULT_RESOURCES_DIR)) {
@@ -262,7 +262,6 @@ class LoginManager {
     await this.replaceCurrentField(username);
     await this.pressTabs(1);
     await this.replaceCurrentField(password);
-    await this.pressTabs(7);
   }
 
   async replaceCurrentField(text) {

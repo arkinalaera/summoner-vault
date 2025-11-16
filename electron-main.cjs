@@ -1,5 +1,5 @@
 // electron-main.cjs
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu, Tray } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
@@ -8,6 +8,7 @@ const { LoginManager } = require("./login-manager.cjs");
 const { ReadyCheckService } = require("./ready-check-service.cjs");
 
 let mainWindow;
+let tray;
 let server;
 let settingsFilePath = "";
 let settings = {
@@ -28,13 +29,17 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: "#050816",
     title: "LoL Account Manager",
-    icon: path.join(__dirname, "resources", "chest.ico"),
+    icon: path.join(__dirname, "resources", "favicon.ico"),
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "preload.cjs"),
     },
   });
+
+  // Supprimer complètement la barre de menu
+  Menu.setApplicationMenu(null);
 
   if (isDev) {
     // DEV : Vite sur port 8080
@@ -58,8 +63,55 @@ function createWindow() {
     });
   }
 
+  // Intercepter la fermeture pour minimiser dans le tray au lieu de quitter
+  mainWindow.on("close", (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, "resources", "favicon.ico");
+  tray = new Tray(iconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Ouvrir",
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    {
+      type: "separator",
+    },
+    {
+      label: "Quitter",
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip("LoL Account Manager");
+  tray.setContextMenu(contextMenu);
+
+  // Double-clic sur l'icône pour afficher la fenêtre
+  tray.on("double-click", () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 }
 
@@ -183,6 +235,11 @@ function registerIpcHandlers() {
       leaguePath: settings.leaguePath,
     });
   });
+
+  ipcMain.handle("app:quit", async () => {
+    app.isQuitting = true;
+    app.quit();
+  });
 }
 
 app.whenReady().then(async () => {
@@ -190,6 +247,7 @@ app.whenReady().then(async () => {
   await loadSettings();
   registerIpcHandlers();
   createWindow();
+  createTray();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

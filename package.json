@@ -31,6 +31,29 @@
     ],
     "directories": {
       "output": "release"
+    },
+    "win": {
+      "icon": "resources/favicon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "resources/favicon.ico",
+      "uninstallerIcon": "resources/favicon.ico"
+    },
+    "mac": {
+      "icon": "resources/Hextech_Crafting_Chest.png"
+    },
+    "linux": {
+      "icon": "resources/Hextech_Crafting_Chest.png"
     }
   },
   "dependencies": {

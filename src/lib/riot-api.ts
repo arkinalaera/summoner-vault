@@ -5,6 +5,56 @@ import { Underline } from "lucide-react";
 // IMPORTANT: Replace with your Riot API key from https://developer.riotgames.com/
 const RIOT_API_KEY = "RGAPI-62da639c-d4dc-447d-817c-538ffbbcc098";
 
+// Rate limiting: max 20 req/sec, 100 req/2min
+let requestQueue: Array<() => Promise<void>> = [];
+let isProcessingQueue = false;
+let requestCount = 0;
+let requestCountWindow = Date.now();
+
+const RATE_LIMIT_PER_SECOND = 19; // Slightly below the limit for safety
+const RATE_LIMIT_WINDOW = 1000; // 1 second
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function rateLimitedFetch(url: string, options: RequestInit): Promise<Response> {
+  // Reset counter if we're in a new window
+  const now = Date.now();
+  if (now - requestCountWindow > RATE_LIMIT_WINDOW) {
+    requestCount = 0;
+    requestCountWindow = now;
+  }
+
+  // If we've hit the limit, wait
+  if (requestCount >= RATE_LIMIT_PER_SECOND) {
+    const waitTime = RATE_LIMIT_WINDOW - (now - requestCountWindow);
+    if (waitTime > 0) {
+      await delay(waitTime);
+    }
+    requestCount = 0;
+    requestCountWindow = Date.now();
+  }
+
+  requestCount++;
+
+  const response = await fetch(url, options);
+
+  // Handle 429 (rate limit exceeded)
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 2000;
+
+    console.warn(`Rate limit hit, waiting ${waitTime}ms before retry...`);
+    await delay(waitTime);
+
+    // Retry the request
+    return rateLimitedFetch(url, options);
+  }
+
+  return response;
+}
+
 const REGION_ROUTING: Record<Region, string> = {
   EUW: "europe",
   EUNE: "europe",
@@ -117,7 +167,7 @@ export async function fetchSummonerData(
       gameName
     )}/${encodeURIComponent(tagLine)}`;
 
-    const accountResponse = await fetch(accountUrl, {
+    const accountResponse = await rateLimitedFetch(accountUrl, {
       headers: { "X-Riot-Token": RIOT_API_KEY },
     });
     if (!accountResponse.ok) {
@@ -128,7 +178,7 @@ export async function fetchSummonerData(
 
     // 2) Get summoner (profile icon, etc.) from PUUID
     const summonerUrl = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}`;
-    const summonerResponse = await fetch(summonerUrl, {
+    const summonerResponse = await rateLimitedFetch(summonerUrl, {
       headers: { "X-Riot-Token": RIOT_API_KEY },
     });
     if (!summonerResponse.ok) {
@@ -138,7 +188,7 @@ export async function fetchSummonerData(
 
     // 3) Get ranked entries BY **PUUID** (✅ new endpoint)
     const rankedUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`;
-    const rankedResponse = await fetch(rankedUrl, {
+    const rankedResponse = await rateLimitedFetch(rankedUrl, {
       headers: { "X-Riot-Token": RIOT_API_KEY },
     });
     if (!rankedResponse.ok) {
