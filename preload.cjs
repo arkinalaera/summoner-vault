@@ -9,6 +9,8 @@ const API_CHANNELS = {
   readyStatus: "lol:ready-status",
   autoAcceptGet: "lol:auto-accept:get",
   autoAcceptSet: "lol:auto-accept:set",
+  riotApiKeyGet: "riot:apikey:get",
+  riotApiKeySet: "riot:apikey:set",
   appQuit: "app:quit",
 };
 
@@ -30,6 +32,12 @@ contextBridge.exposeInMainWorld("api", {
   },
   setAutoAcceptEnabled(nextValue) {
     return ipcRenderer.invoke(API_CHANNELS.autoAcceptSet, nextValue);
+  },
+  getRiotApiKey() {
+    return ipcRenderer.invoke(API_CHANNELS.riotApiKeyGet);
+  },
+  setRiotApiKey(nextKey) {
+    return ipcRenderer.invoke(API_CHANNELS.riotApiKeySet, nextKey);
   },
   quitApp() {
     return ipcRenderer.invoke(API_CHANNELS.appQuit);

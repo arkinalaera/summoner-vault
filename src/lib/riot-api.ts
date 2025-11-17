@@ -2,8 +2,38 @@ import { Region } from "@/types/account";
 import { RankDivision,RankTier } from "@/types/account";
 import { Underline } from "lucide-react";
 
-// IMPORTANT: Replace with your Riot API key from https://developer.riotgames.com/
-const RIOT_API_KEY = "RGAPI-62da639c-d4dc-447d-817c-538ffbbcc098";
+// Default API key (fallback if user doesn't provide their own)
+const DEFAULT_RIOT_API_KEY = "RGAPI-62da639c-d4dc-447d-817c-538ffbbcc098";
+
+// Current API key (will be loaded from settings)
+let RIOT_API_KEY = DEFAULT_RIOT_API_KEY;
+
+// Function to get API key from settings
+async function getApiKey(): Promise<string> {
+  try {
+    const api = (window as any).api;
+    if (api?.getRiotApiKey) {
+      const customKey = await api.getRiotApiKey();
+      if (customKey && customKey.trim().length > 0) {
+        return customKey;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to get custom API key, using default:", error);
+  }
+  return DEFAULT_RIOT_API_KEY;
+}
+
+// Initialize API key on module load
+getApiKey().then((key) => {
+  RIOT_API_KEY = key;
+});
+
+// Export function to reload API key (call this after user updates it in settings)
+export async function reloadApiKey(): Promise<void> {
+  RIOT_API_KEY = await getApiKey();
+  console.log("Riot API key reloaded");
+}
 
 // Rate limiting: max 20 req/sec, 100 req/2min
 let requestQueue: Array<() => Promise<void>> = [];

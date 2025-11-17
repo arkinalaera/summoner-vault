@@ -6,7 +6,7 @@ import { AccountDialog } from "@/components/AccountDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { fetchSummonerData } from "@/lib/riot-api";
+import { fetchSummonerData, reloadApiKey } from "@/lib/riot-api";
 import { normalizeDivision,normalizeTier } from "@/lib/riot-api";
 import {
   Select,
@@ -25,7 +25,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Filter, Settings, LogOut } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Plus, Search, Filter, Settings, LogOut, RefreshCw } from "lucide-react";
 import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -48,6 +56,10 @@ const Index = () => {
   const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null);
   const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
   const [isTogglingAutoAccept, setIsTogglingAutoAccept] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
+  const [welcomeApiKey, setWelcomeApiKey] = useState("");
+  const [isSavingWelcomeApiKey, setIsSavingWelcomeApiKey] = useState(false);
   const { toast } = useToast();
   const isLeaguePathMissing = leaguePath.trim().length === 0;
   const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
@@ -59,7 +71,23 @@ const Index = () => {
 
   useEffect(() => {
     loadAccounts();
+    checkFirstLaunch();
   }, []);
+
+  const checkFirstLaunch = async () => {
+    const api = window.api;
+    if (!api?.getRiotApiKey) return;
+
+    try {
+      const existingApiKey = await api.getRiotApiKey();
+      // If no API key is set, show welcome dialog
+      if (!existingApiKey || existingApiKey.trim().length === 0) {
+        setShowWelcomeDialog(true);
+      }
+    } catch (error) {
+      console.error("Failed to check API key:", error);
+    }
+  };
 
   useEffect(() => {
     applyFilters();
@@ -182,11 +210,31 @@ const Index = () => {
     return;
   }
 
-  // Process accounts sequentially to respect rate limits
-  const updatedAccounts: Account[] = [];
+  // Cache duration: only refresh accounts older than 1 hour
+  const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+  const now = Date.now();
 
-  for (let i = 0; i < localAccounts.length; i++) {
-    const acc = localAccounts[i];
+  // Filter accounts that need refresh (older than 1 hour)
+  const accountsToRefresh = localAccounts.filter((acc) => {
+    if (!acc.updatedAt) return true; // Refresh if never updated
+    const lastUpdate = new Date(acc.updatedAt).getTime();
+    return now - lastUpdate > CACHE_DURATION_MS;
+  });
+
+  // If no accounts need refresh, we're done
+  if (accountsToRefresh.length === 0) {
+    console.log("All accounts are up to date (cached within 1 hour)");
+    return;
+  }
+
+  console.log(`Refreshing ${accountsToRefresh.length}/${localAccounts.length} accounts...`);
+
+  // Process accounts sequentially to respect rate limits
+  const updatedAccounts = [...localAccounts];
+
+  for (let i = 0; i < accountsToRefresh.length; i++) {
+    const acc = accountsToRefresh[i];
+    const accountIndex = localAccounts.findIndex((a) => a.id === acc.id);
 
     try {
       const riot = await fetchSummonerData(acc.summonerName, acc.region);
@@ -214,15 +262,14 @@ const Index = () => {
         updatedAt: new Date().toISOString(),
       };
 
-      // Save to storage and add to results
+      // Save to storage and update in array
       storage.updateAccount(updated);
-      updatedAccounts.push(updated);
+      updatedAccounts[accountIndex] = updated;
 
       // Update UI progressively as each account is processed
-      setAccounts([...updatedAccounts, ...localAccounts.slice(i + 1)]);
+      setAccounts([...updatedAccounts]);
     } catch (err) {
       console.error(`Failed to sync ${acc.summonerName}:`, err);
-      updatedAccounts.push(acc);
     }
   }
 
@@ -387,6 +434,60 @@ const Index = () => {
     setDraggingAccountId(null);
   };
 
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    try {
+      // Force refresh all accounts by clearing updatedAt temporarily
+      const localAccounts = storage.getAccounts();
+      const accountsToRefresh = [...localAccounts];
+
+      for (const acc of accountsToRefresh) {
+        try {
+          const riot = await fetchSummonerData(acc.summonerName, acc.region);
+
+          const soloTier = normalizeTier(riot.soloRankTier);
+          const soloDiv = normalizeDivision(riot.soloRankDivision);
+          const flexTier = normalizeTier(riot.flexRankTier);
+          const flexDiv = normalizeDivision(riot.flexRankDivision);
+
+          const updated: Account = {
+            ...acc,
+            summonerName: riot.summonerName,
+            iconUrl: riot.iconUrl,
+            rankTier: soloTier,
+            rankDivision: soloDiv,
+            gamesCount: riot.soloGamesCount,
+            flexRankTier: flexTier,
+            flexRankDivision: flexDiv,
+            flexGamesCount: riot.flexGamesCount,
+            updatedAt: new Date().toISOString(),
+          };
+
+          storage.updateAccount(updated);
+        } catch (err) {
+          console.error(`Failed to refresh ${acc.summonerName}:`, err);
+        }
+      }
+
+      // Reload accounts after refresh
+      await loadAccounts();
+
+      toast({
+        title: "Comptes mis à jour",
+        description: `${accountsToRefresh.length} compte(s) rafraîchi(s) avec succès.`,
+      });
+    } catch (error) {
+      console.error("Failed to refresh accounts:", error);
+      toast({
+        title: "Erreur de rafraîchissement",
+        description: "Impossible de mettre à jour les comptes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleToggleAutoAccept = async (nextValue: boolean) => {
     const api = window.api;
     if (!api?.setAutoAcceptEnabled) {
@@ -432,6 +533,46 @@ const Index = () => {
     await api.quitApp();
   };
 
+  const handleSaveWelcomeApiKey = async () => {
+    const api = window.api;
+    if (!api?.setRiotApiKey) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder l'API key.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingWelcomeApiKey(true);
+    try {
+      await api.setRiotApiKey(welcomeApiKey);
+      await reloadApiKey();
+      setShowWelcomeDialog(false);
+      toast({
+        title: "Bienvenue !",
+        description: "Ta clé API a été configurée avec succès.",
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Erreur de sauvegarde",
+        description: "Impossible de sauvegarder l'API key.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingWelcomeApiKey(false);
+    }
+  };
+
+  const handleSkipWelcome = () => {
+    setShowWelcomeDialog(false);
+    toast({
+      title: "Configuration ignorée",
+      description: "L'application utilisera la clé API par défaut. Tu peux configurer ta propre clé dans les Paramètres.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -470,6 +611,15 @@ const Index = () => {
               <Button onClick={handleAddNew} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Add Account
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefreshAll}
+                disabled={isRefreshing}
+                title="Rafraîchir tous les comptes"
+              >
+                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
               <Button variant="secondary" size="icon" asChild>
                 <Link to="/settings">
@@ -639,6 +789,73 @@ const Index = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Welcome Dialog - First Launch */}
+      <Dialog open={showWelcomeDialog} onOpenChange={setShowWelcomeDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Bienvenue sur LoL Account Manager ! 👋</DialogTitle>
+            <DialogDescription className="space-y-3 pt-2">
+              <p>
+                Pour utiliser cette application, tu as besoin d'une <strong>clé API Riot Games</strong>.
+              </p>
+              <p className="text-sm">
+                Tu peux obtenir ta clé gratuitement sur{" "}
+                <a
+                  href="https://developer.riotgames.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline font-medium"
+                >
+                  developer.riotgames.com
+                </a>
+              </p>
+              <div className="bg-muted p-3 rounded-md text-sm">
+                <p className="font-medium mb-1">Deux options :</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li><strong>Development Key</strong> : Gratuite, limites d'appels</li>
+                  <li><strong>Production Key</strong> : Demande d'approbation, permanente</li>
+                </ul>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="welcome-api-key" className="text-sm font-medium">
+                Clé API Riot (optionnel)
+              </label>
+              <Input
+                id="welcome-api-key"
+                type="password"
+                placeholder="RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={welcomeApiKey}
+                onChange={(e) => setWelcomeApiKey(e.target.value)}
+                disabled={isSavingWelcomeApiKey}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tu peux ignorer cette étape et utiliser la clé par défaut (limites plus basses).
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSkipWelcome}
+              disabled={isSavingWelcomeApiKey}
+            >
+              Ignorer
+            </Button>
+            <Button
+              onClick={handleSaveWelcomeApiKey}
+              disabled={isSavingWelcomeApiKey || welcomeApiKey.trim().length === 0}
+            >
+              {isSavingWelcomeApiKey ? "Sauvegarde..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

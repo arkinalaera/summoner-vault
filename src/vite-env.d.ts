@@ -29,6 +29,8 @@ declare global {
     loginAccount: (payload: LoginAccountPayload) => Promise<void>;
     getAutoAcceptEnabled: () => Promise<boolean>;
     setAutoAcceptEnabled: (next: boolean) => Promise<boolean>;
+    getRiotApiKey: () => Promise<string | null>;
+    setRiotApiKey: (next: string) => Promise<string | null>;
     quitApp: () => Promise<void>;
     onLoginStatus: (
       callback: (payload: LoginStatusPayload) => void

@@ -14,6 +14,7 @@ let settingsFilePath = "";
 let settings = {
   leaguePath: "",
   autoAcceptEnabled: false,
+  riotApiKey: "",
 };
 let ipcRegistered = false;
 let loginManager;
@@ -179,6 +180,16 @@ function registerIpcHandlers() {
       readyCheckService.setLeaguePath(settings.leaguePath);
     }
     return settings.leaguePath || null;
+  });
+
+  ipcMain.handle("riot:apikey:get", async () => {
+    return settings.riotApiKey || null;
+  });
+
+  ipcMain.handle("riot:apikey:set", async (event, nextKey) => {
+    settings.riotApiKey = typeof nextKey === "string" ? nextKey : "";
+    await saveSettings();
+    return settings.riotApiKey || null;
   });
 
   ipcMain.handle("lol:path:select", async () => {
