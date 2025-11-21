@@ -35,6 +35,9 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Copy .nojekyll to dist
+        run: cp public/.nojekyll dist/.nojekyll || touch dist/.nojekyll
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
