@@ -5,7 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "./",
+  // Use relative paths for GitHub Pages deployment
+  base: mode === "production" ? "/summoner-vault/" : "./",
   server: {
     host: "::",
     port: 8080,
