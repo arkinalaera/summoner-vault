@@ -31,6 +31,8 @@ declare global {
     setAutoAcceptEnabled: (next: boolean) => Promise<boolean>;
     getRiotApiKey: () => Promise<string | null>;
     setRiotApiKey: (next: string) => Promise<string | null>;
+    encryptAccount: (account: any) => Promise<any>;
+    decryptAccount: (encryptedAccount: any) => Promise<any>;
     quitApp: () => Promise<void>;
     onLoginStatus: (
       callback: (payload: LoginStatusPayload) => void

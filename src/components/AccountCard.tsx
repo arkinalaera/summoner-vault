@@ -4,6 +4,7 @@ import { Clipboard, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { rankEmblemUrl } from "@/lib/rank";
+import { memo } from "react";
 
 interface AccountCardProps {
   account: Account;
@@ -19,7 +20,7 @@ interface AccountCardProps {
   onDragEnd?: () => void;
 }
 
-export function AccountCard({
+export const AccountCard = memo(function AccountCard({
   account,
   onEdit,
   onDelete,
@@ -217,4 +218,4 @@ export function AccountCard({
       </div>
     </div>
   );
-}
+});

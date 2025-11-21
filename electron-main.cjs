@@ -6,6 +6,7 @@ const http = require("http");
 const handler = require("serve-handler");
 const { LoginManager } = require("./login-manager.cjs");
 const { ReadyCheckService } = require("./ready-check-service.cjs");
+const { encryptAccount, decryptAccount } = require("./encryption.cjs");
 
 let mainWindow;
 let tray;
@@ -250,6 +251,25 @@ function registerIpcHandlers() {
   ipcMain.handle("app:quit", async () => {
     app.isQuitting = true;
     app.quit();
+  });
+
+  // Encryption handlers
+  ipcMain.handle("encrypt:account", async (_event, account) => {
+    try {
+      return encryptAccount(account);
+    } catch (error) {
+      console.error("Failed to encrypt account:", error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle("decrypt:account", async (_event, encryptedAccount) => {
+    try {
+      return decryptAccount(encryptedAccount);
+    } catch (error) {
+      console.error("Failed to decrypt account:", error);
+      throw error;
+    }
   });
 }
 

@@ -11,6 +11,8 @@ const API_CHANNELS = {
   autoAcceptSet: "lol:auto-accept:set",
   riotApiKeyGet: "riot:apikey:get",
   riotApiKeySet: "riot:apikey:set",
+  encryptAccount: "encrypt:account",
+  decryptAccount: "decrypt:account",
   appQuit: "app:quit",
 };
 
@@ -38,6 +40,12 @@ contextBridge.exposeInMainWorld("api", {
   },
   setRiotApiKey(nextKey) {
     return ipcRenderer.invoke(API_CHANNELS.riotApiKeySet, nextKey);
+  },
+  encryptAccount(account) {
+    return ipcRenderer.invoke(API_CHANNELS.encryptAccount, account);
+  },
+  decryptAccount(encryptedAccount) {
+    return ipcRenderer.invoke(API_CHANNELS.decryptAccount, encryptedAccount);
   },
   quitApp() {
     return ipcRenderer.invoke(API_CHANNELS.appQuit);

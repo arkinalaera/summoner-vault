@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import { Account, RankTier, Region } from "@/types/account";
 import { storage } from "@/lib/storage";
 import { AccountCard } from "@/components/AccountCard";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fetchSummonerData, reloadApiKey } from "@/lib/riot-api";
 import { normalizeDivision,normalizeTier } from "@/lib/riot-api";
+import { migrateToEncryptedStorage } from "@/lib/migrateStorage";
 import {
   Select,
   SelectContent,
@@ -70,8 +71,11 @@ const Index = () => {
     : undefined;
 
   useEffect(() => {
-    loadAccounts();
-    checkFirstLaunch();
+    // Migrate existing accounts to encrypted storage
+    migrateToEncryptedStorage().then(() => {
+      loadAccounts();
+      checkFirstLaunch();
+    });
   }, []);
 
   const checkFirstLaunch = async () => {
@@ -202,7 +206,7 @@ const Index = () => {
   }, []);
 
  const loadAccounts = async () => {
-  const localAccounts = storage.getAccounts();
+  const localAccounts = await storage.getAccounts();
   setAccounts(localAccounts);
 
   if (localAccounts.length === 0) {
@@ -263,7 +267,7 @@ const Index = () => {
       };
 
       // Save to storage and update in array
-      storage.updateAccount(updated);
+      await storage.updateAccount(updated);
       updatedAccounts[accountIndex] = updated;
 
       // Update UI progressively as each account is processed
@@ -298,21 +302,21 @@ const Index = () => {
     setFilteredAccounts(filtered);
   };
 
-  const handleSaveAccount = (account: Account) => {
+  const handleSaveAccount = async (account: Account) => {
     if (editingAccount) {
-      storage.updateAccount(account);
+      await storage.updateAccount(account);
       toast({
         title: "Success",
         description: "Account updated successfully",
       });
     } else {
-      storage.addAccount(account);
+      await storage.addAccount(account);
       toast({
         title: "Success",
         description: "Account added successfully",
       });
     }
-    loadAccounts();
+    await loadAccounts();
     setEditingAccount(undefined);
   };
 
@@ -326,10 +330,10 @@ const Index = () => {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (accountToDelete) {
-      storage.deleteAccount(accountToDelete);
-      loadAccounts();
+      await storage.deleteAccount(accountToDelete);
+      await loadAccounts();
       toast({
         title: "Deleted",
         description: "Account deleted successfully",
@@ -344,7 +348,7 @@ const Index = () => {
     setDialogOpen(true);
   };
 
-  const moveAccount = (sourceId: string, targetId: string) => {
+  const moveAccount = async (sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
     setAccounts((previous) => {
       const sourceIndex = previous.findIndex((acc) => acc.id === sourceId);
@@ -438,7 +442,7 @@ const Index = () => {
     setIsRefreshing(true);
     try {
       // Force refresh all accounts by clearing updatedAt temporarily
-      const localAccounts = storage.getAccounts();
+      const localAccounts = await storage.getAccounts();
       const accountsToRefresh = [...localAccounts];
 
       for (const acc of accountsToRefresh) {
@@ -463,7 +467,7 @@ const Index = () => {
             updatedAt: new Date().toISOString(),
           };
 
-          storage.updateAccount(updated);
+          await storage.updateAccount(updated);
         } catch (err) {
           console.error(`Failed to refresh ${acc.summonerName}:`, err);
         }
