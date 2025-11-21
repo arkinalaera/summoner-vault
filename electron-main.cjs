@@ -4,7 +4,6 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 const handler = require("serve-handler");
-const { LoginManager } = require("./login-manager.cjs");
 const { ReadyCheckService } = require("./ready-check-service.cjs");
 const { encryptAccount, decryptAccount } = require("./encryption.cjs");
 
@@ -18,7 +17,6 @@ let settings = {
   riotApiKey: "",
 };
 let ipcRegistered = false;
-let loginManager;
 let readyCheckService;
 
 const isDev = !app.isPackaged; // true en dev, false dans le .exe
@@ -147,11 +145,6 @@ async function saveSettings() {
   }
 }
 
-function sendLoginStatus(payload) {
-  if (!mainWindow) return;
-  mainWindow.webContents.send("lol:login-status", payload);
-}
-
 function sendReadyStatus(payload) {
   if (!mainWindow) return;
   mainWindow.webContents.send("lol:ready-status", payload);
@@ -160,9 +153,7 @@ function sendReadyStatus(payload) {
 function registerIpcHandlers() {
   if (ipcRegistered) return;
   ipcRegistered = true;
-  if (!loginManager) {
-    loginManager = new LoginManager(sendLoginStatus);
-  }
+
   if (!readyCheckService) {
     readyCheckService = new ReadyCheckService(sendReadyStatus);
     readyCheckService.setLeaguePath(settings.leaguePath);
@@ -187,7 +178,7 @@ function registerIpcHandlers() {
     return settings.riotApiKey || null;
   });
 
-  ipcMain.handle("riot:apikey:set", async (event, nextKey) => {
+  ipcMain.handle("riot:apikey:set", async (_event, nextKey) => {
     settings.riotApiKey = typeof nextKey === "string" ? nextKey : "";
     await saveSettings();
     return settings.riotApiKey || null;
@@ -230,22 +221,6 @@ function registerIpcHandlers() {
       readyCheckService.setAutoAcceptEnabled(settings.autoAcceptEnabled);
     }
     return settings.autoAcceptEnabled;
-  });
-
-  ipcMain.handle("lol:account:login", async (_event, payload) => {
-    if (!payload || typeof payload !== "object") {
-      throw new Error("Informations de compte invalides.");
-    }
-
-    const { accountId, login, password, region } = payload;
-
-    await loginManager.login({
-      accountId,
-      login,
-      password,
-      region,
-      leaguePath: settings.leaguePath,
-    });
   });
 
   ipcMain.handle("app:quit", async () => {

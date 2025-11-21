@@ -30,7 +30,6 @@ A powerful desktop application to manage multiple League of Legends accounts, tr
 - 🎨 **Visual Rank Badges**: Beautiful rank icons from Iron to Challenger
 
 ### Automation
-- 🚀 **One-Click Login**: Automated account switching with credential auto-fill
 - ✅ **Auto-Accept Matches**: Automatically accept queue pop using LCU API
 - 🔄 **Auto-Refresh**: Ranks update automatically on startup (with smart caching)
 - ⏱️ **Rate Limiting**: Built-in request throttling to respect Riot API limits
@@ -86,7 +85,7 @@ On first startup, you'll be greeted with a welcome dialog asking for:
 
 Access settings via the ⚙️ icon in the top-right corner:
 
-- **Riot Client Path**: Path to RiotClientServices.exe (required for auto-login)
+- **Riot Client Path**: Path to RiotClientServices.exe (required for auto-accept)
 - **Riot API Key**: Your personal API key (optional)
 
 ## 🎮 Usage
@@ -98,7 +97,7 @@ Access settings via the ⚙️ icon in the top-right corner:
    - **Account Name**: Display name (e.g., "Main Account")
    - **Riot ID**: Your Riot ID (e.g., "PlayerName#EUW")
    - **Region**: Select your region
-   - **Login/Password**: Game credentials (for auto-login)
+   - **Login/Password**: Game credentials (stored securely)
    - **Notes**: Optional notes
 3. Click **"Save"**
 4. The app will automatically fetch rank data from Riot API
@@ -107,7 +106,6 @@ Access settings via the ⚙️ icon in the top-right corner:
 
 - **Edit**: Click the edit icon on any account card
 - **Delete**: Click the trash icon to remove an account
-- **Login**: Click "Login" to automatically log into the game
 - **Search**: Use the search bar to filter by name
 - **Filter**: Filter by rank or region using dropdowns
 - **Reorder**: Drag and drop accounts to reorder them
@@ -170,8 +168,8 @@ The app uses Riot Games API to fetch:
 ### Backend/Desktop
 - **Electron** - Desktop framework
 - **Node.js** - Runtime environment
-- **@nut-tree-fork/nut-js** - Keyboard/mouse automation
-- **axios** - HTTP client
+- **node-window-manager** - Window management for auto-accept
+- **AES-256-GCM** - Credential encryption
 
 ### APIs
 - **Riot Games API** - Account data, ranks, match history
@@ -182,11 +180,11 @@ The app uses Riot Games API to fetch:
 
 **Important Notes:**
 
-1. **Auto-Login Feature**: The automated login feature uses input simulation, which may violate Riot Games' Terms of Service. Use at your own risk. The developer is not responsible for any account actions taken by Riot Games.
+1. **Third-Party Application**: This is an unofficial, community-made tool not endorsed by Riot Games. "League of Legends" and "Riot Games" are trademarks or registered trademarks of Riot Games, Inc.
 
-2. **Third-Party Application**: This is an unofficial, community-made tool not endorsed by Riot Games. "League of Legends" and "Riot Games" are trademarks or registered trademarks of Riot Games, Inc.
+2. **No Warranty**: This software is provided "as is" without warranty of any kind.
 
-3. **No Warranty**: This software is provided "as is" without warranty of any kind.
+3. **Account Security**: While credentials are encrypted locally, always use strong, unique passwords for your accounts.
 
 ## 📄 License
 

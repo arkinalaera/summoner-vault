@@ -1,20 +1,6 @@
 /// <reference types="vite/client" />
 
 declare global {
-  interface LoginStatusPayload {
-    accountId: string;
-    step: string;
-    kind?: "info" | "success" | "error";
-    message?: string;
-  }
-
-  interface LoginAccountPayload {
-    accountId: string;
-    login: string;
-    password: string;
-    region?: string;
-  }
-
   interface ReadyStatusPayload {
     step: string;
     kind?: "info" | "success" | "error";
@@ -26,7 +12,6 @@ declare global {
     selectLeaguePath: () => Promise<string | null>;
     getLeaguePath: () => Promise<string | null>;
     setLeaguePath: (next: string) => Promise<void>;
-    loginAccount: (payload: LoginAccountPayload) => Promise<void>;
     getAutoAcceptEnabled: () => Promise<boolean>;
     setAutoAcceptEnabled: (next: boolean) => Promise<boolean>;
     getRiotApiKey: () => Promise<string | null>;
@@ -34,9 +19,6 @@ declare global {
     encryptAccount: (account: any) => Promise<any>;
     decryptAccount: (encryptedAccount: any) => Promise<any>;
     quitApp: () => Promise<void>;
-    onLoginStatus: (
-      callback: (payload: LoginStatusPayload) => void
-    ) => (() => void) | void;
     onReadyStatus: (
       callback: (payload: ReadyStatusPayload) => void
     ) => (() => void) | void;

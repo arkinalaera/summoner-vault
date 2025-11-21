@@ -2,7 +2,6 @@ import { Account } from "@/types/account";
 import { Button } from "./ui/button";
 import { Clipboard, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { rankEmblemUrl } from "@/lib/rank";
 import { memo } from "react";
 
@@ -10,10 +9,6 @@ interface AccountCardProps {
   account: Account;
   onEdit: (account: Account) => void;
   onDelete: (id: string) => void;
-  onLogin: (account: Account) => void;
-  loginState?: LoginStatusPayload;
-  loginDisabled?: boolean;
-  loginDisabledReason?: string;
   draggable?: boolean;
   onDragStart?: (account: Account) => void;
   onDragEnter?: (account: Account) => void;
@@ -24,10 +19,6 @@ export const AccountCard = memo(function AccountCard({
   account,
   onEdit,
   onDelete,
-  onLogin,
-  loginState,
-  loginDisabled = false,
-  loginDisabledReason,
   draggable = false,
   onDragStart,
   onDragEnter,
@@ -57,26 +48,6 @@ export const AccountCard = memo(function AccountCard({
 
   const soloEmblemSrc = rankEmblemUrl[soloTier];
   const flexEmblemSrc = rankEmblemUrl[flexTier];
-
-  const isLoginInProgress =
-    !!loginState && loginState.kind !== "error" && loginState.kind !== "success";
-  const loginStatusMessage =
-    loginState?.message ??
-    (loginState?.kind === "error"
-      ? "Échec de la connexion."
-      : loginState?.kind === "success"
-      ? "Connexion lancée sur League."
-      : undefined);
-  const loginButtonDisabled = loginDisabled || isLoginInProgress;
-  const loginButtonLabel = isLoginInProgress ? "Connexion..." : "Se connecter";
-  const loginStatusTone =
-    loginState?.kind === "error"
-      ? "text-destructive"
-      : loginState?.kind === "success"
-      ? "text-emerald-400"
-      : "text-muted-foreground";
-  const loginButtonTitle =
-    loginDisabledReason ?? (isLoginInProgress ? "Connexion en cours..." : undefined);
 
   return (
     <div
@@ -178,43 +149,25 @@ export const AccountCard = memo(function AccountCard({
       </div>
 
       {/* Actions */}
-      <div className="ml-auto flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-        <div className="flex flex-col gap-1 min-w-[170px]">
-          <Button
-            type="button"
-            size="sm"
-            className="gap-2"
-            onClick={() => onLogin(account)}
-            disabled={loginButtonDisabled}
-            title={loginButtonTitle}
-          >
-            {loginButtonLabel}
-          </Button>
-          {loginStatusMessage && (
-            <span className={cn("text-xs", loginStatusTone)}>{loginStatusMessage}</span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit(account)}
-            className="gap-1"
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onDelete(account.id)}
-            className="gap-1 text-destructive border-destructive/40"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </Button>
-        </div>
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onEdit(account)}
+          className="gap-1"
+        >
+          <Edit2 className="w-4 h-4" />
+          Edit
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onDelete(account.id)}
+          className="gap-1 text-destructive border-destructive/40"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete
+        </Button>
       </div>
     </div>
   );

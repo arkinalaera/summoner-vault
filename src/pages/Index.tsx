@@ -51,9 +51,6 @@ const Index = () => {
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
   const [leaguePath, setLeaguePath] = useState("");
   const [isPersistingLeaguePath, setIsPersistingLeaguePath] = useState(false);
-  const [loginStatuses, setLoginStatuses] = useState<
-    Record<string, LoginStatusPayload | undefined>
-  >({});
   const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null);
   const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
   const [isTogglingAutoAccept, setIsTogglingAutoAccept] = useState(false);
@@ -62,13 +59,6 @@ const Index = () => {
   const [welcomeApiKey, setWelcomeApiKey] = useState("");
   const [isSavingWelcomeApiKey, setIsSavingWelcomeApiKey] = useState(false);
   const { toast } = useToast();
-  const isLeaguePathMissing = leaguePath.trim().length === 0;
-  const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
-  const loginDisabledReason = isLeaguePathMissing
-    ? "Définis d'abord le chemin League of Legends."
-    : isPersistingLeaguePath
-    ? "Sauvegarde du chemin en cours..."
-    : undefined;
 
   useEffect(() => {
     // Migrate existing accounts to encrypted storage
@@ -120,41 +110,6 @@ const Index = () => {
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    const api = window.api;
-    if (!api?.onLoginStatus) {
-      return;
-    }
-
-    const unsubscribe = api.onLoginStatus((payload) => {
-      setLoginStatuses((previous) => ({
-        ...previous,
-        [payload.accountId]: payload,
-      }));
-
-      if (payload.kind === "error") {
-        toast({
-          title: "Connexion impossible",
-          description:
-            payload.message ?? "Une erreur est survenue lors de la connexion.",
-          variant: "destructive",
-        });
-      } else if (payload.kind === "success") {
-        toast({
-          title: "Connexion lancé",
-          description:
-            payload.message ?? "League of Legends traite la connexion.",
-        });
-      }
-    });
-
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
-  }, [toast]);
 
   useEffect(() => {
     const api = window.api;
@@ -364,66 +319,6 @@ const Index = () => {
     });
   };
 
-  const handleLoginAccount = async (account: Account) => {
-    const api = window.api;
-    if (!api?.loginAccount) {
-      toast({
-        title: "Desktop API indisponible",
-        description: "La fonctionnalité de connexion est inaccessible.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (isLeaguePathMissing) {
-      toast({
-        title: "Chemin League requis",
-        description:
-          "Merci de renseigner le chemin complet vers RiotClientServices.exe avant de lancer une connexion.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoginStatuses((previous) => ({
-      ...previous,
-      [account.id]: {
-        accountId: account.id,
-        step: "renderer-start",
-        kind: "info",
-        message: "Initialisation de la connexion",
-      },
-    }));
-
-    try {
-      await api.loginAccount({
-        accountId: account.id,
-        login: account.login,
-        password: account.password,
-        region: account.region,
-      });
-    } catch (error) {
-      console.error("Failed to trigger account login:", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Une erreur inconnue est survenue.";
-      setLoginStatuses((previous) => ({
-        ...previous,
-        [account.id]: {
-          accountId: account.id,
-          step: "renderer-error",
-          kind: "error",
-          message,
-        },
-      }));
-      toast({
-        title: "Connexion a échouée",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleDragStartAccount = (account: Account) => {
     setDraggingAccountId(account.id);
@@ -754,10 +649,6 @@ const Index = () => {
                 account={account}
                 onEdit={handleEditAccount}
                 onDelete={handleDeleteAccount}
-                onLogin={handleLoginAccount}
-                loginState={loginStatuses[account.id]}
-                loginDisabled={disableLoginButtons}
-                loginDisabledReason={loginDisabledReason}
                 draggable
                 onDragStart={handleDragStartAccount}
                 onDragEnter={handleDragEnterAccount}
