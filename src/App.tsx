@@ -9,10 +9,13 @@ import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
-// Get the base URL for GitHub Pages
+// Get the base URL for GitHub Pages (must not end with /)
 const basename = import.meta.env.MODE === 'production' ? '/summoner-vault' : '';
 
-const App = () => (
+const App = () => {
+  console.log('App running with basename:', basename, 'mode:', import.meta.env.MODE);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -27,6 +30,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
