@@ -9,12 +9,15 @@ import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
+// Get the base URL for GitHub Pages
+const basename = import.meta.env.MODE === 'production' ? '/summoner-vault' : '';
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/settings" element={<Settings />} />
