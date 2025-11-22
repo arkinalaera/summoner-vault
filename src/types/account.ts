@@ -25,11 +25,13 @@ export interface Account {
   rankTier: RankTier;
   rankDivision?: RankDivision;
   gamesCount: number;
+  leaguePoints?: number; // LP for Master, Grandmaster, Challenger
 
   // FLEX
   flexRankTier?: RankTier;
   flexRankDivision?: RankDivision;
   flexGamesCount?: number;
+  flexLeaguePoints?: number; // LP for Master, Grandmaster, Challenger in Flex
 
   login: string;
   password: string;

@@ -119,9 +119,11 @@ export interface RiotSummonerData {
   soloRankTier: string;
   soloRankDivision?: string;
   soloGamesCount: number;
+  soloLeaguePoints: number;
   flexRankTier: string;
   flexRankDivision?: string;
   flexGamesCount: number;
+  flexLeaguePoints: number;
 }
 
 type RankedEntry = {
@@ -247,11 +249,13 @@ export async function fetchSummonerData(
       soloRankTier: soloQueue?.tier ?? "Unranked",
       soloRankDivision: soloQueue?.rank ?? undefined,
       soloGamesCount: soloGames,
+      soloLeaguePoints: soloQueue?.leaguePoints ?? 0,
 
       // FLEX
       flexRankTier: flexQueue?.tier ?? "Unranked",
       flexRankDivision: flexQueue?.rank ?? undefined,
       flexGamesCount: flexGames,
+      flexLeaguePoints: flexQueue?.leaguePoints ?? 0,
     };
   } catch (error) {
     console.error("Riot API Error:", error);

@@ -1,16 +1,17 @@
 import { Account } from "@/types/account";
 import { Button } from "./ui/button";
-import { Clipboard, Edit2, Trash2 } from "lucide-react";
+import { Clipboard, Edit2, Trash2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { rankEmblemUrl } from "@/lib/rank";
-import { memo } from "react";
+import { memo, useState } from "react";
 
 interface AccountCardProps {
   account: Account;
   onEdit: (account: Account) => void;
   onDelete: (id: string) => void;
   onLogin: (account: Account) => void;
+  onRefresh: (accountId: string) => void;
   loginState?: LoginStatusPayload;
   loginDisabled?: boolean;
   loginDisabledReason?: string;
@@ -25,6 +26,7 @@ export const AccountCard = memo(function AccountCard({
   onEdit,
   onDelete,
   onLogin,
+  onRefresh,
   loginState,
   loginDisabled = false,
   loginDisabledReason,
@@ -34,6 +36,7 @@ export const AccountCard = memo(function AccountCard({
   onDragEnd,
 }: AccountCardProps) {
   const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleCopySummonerName = async () => {
     try {
@@ -49,6 +52,15 @@ export const AccountCard = memo(function AccountCard({
         description: "Failed to copy summoner name.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh(account.id);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -80,7 +92,10 @@ export const AccountCard = memo(function AccountCard({
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-3"
+      className={cn(
+        "flex items-center gap-4 px-4 py-3",
+        draggable && "cursor-move"
+      )}
       draggable={draggable}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "move";
@@ -109,7 +124,7 @@ export const AccountCard = memo(function AccountCard({
           <button
             type="button"
             onClick={handleCopySummonerName}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-card-foreground hover:underline decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-card-foreground hover:underline decoration-dotted cursor-pointer"
           >
             {account.summonerName}
             <Clipboard className="w-3 h-3 opacity-70" />
@@ -117,6 +132,11 @@ export const AccountCard = memo(function AccountCard({
 
           <span className="text-xs text-muted-foreground">
             {account.accountName}
+          </span>
+
+          {/* Région */}
+          <span className="text-xs text-muted-foreground font-medium">
+            {account.region}
           </span>
         </div>
       </div>
@@ -139,6 +159,8 @@ export const AccountCard = memo(function AccountCard({
             <span className="text-sm font-medium">
               {soloTier === "Unranked"
                 ? "Unranked"
+                : (soloTier === "Master" || soloTier === "Grandmaster" || soloTier === "Challenger")
+                ? `${soloTier} ${account.leaguePoints ?? 0} LP`
                 : `${soloTier} ${account.rankDivision ?? ""}`}
             </span>
             <span className="text-xs text-muted-foreground">
@@ -163,6 +185,8 @@ export const AccountCard = memo(function AccountCard({
             <span className="text-sm font-medium">
               {flexTier === "Unranked"
                 ? "Unranked"
+                : (flexTier === "Master" || flexTier === "Grandmaster" || flexTier === "Challenger")
+                ? `${flexTier} ${account.flexLeaguePoints ?? 0} LP`
                 : `${flexTier} ${account.flexRankDivision ?? ""}`}
             </span>
             <span className="text-xs text-muted-foreground">
@@ -170,11 +194,6 @@ export const AccountCard = memo(function AccountCard({
             </span>
           </div>
         </div>
-      </div>
-
-      {/* Région */}
-      <div className="text-sm text-muted-foreground min-w-[80px]">
-        {account.region}
       </div>
 
       {/* Actions */}
@@ -196,6 +215,17 @@ export const AccountCard = memo(function AccountCard({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="gap-1"
+            title="Rafraîchir ce compte"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            
+          </Button>
           <Button
             variant="outline"
             size="sm"

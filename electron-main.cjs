@@ -23,6 +23,23 @@ let readyCheckService;
 
 const isDev = !app.isPackaged; // true en dev, false dans le .exe
 
+// Empêcher le lancement de multiples instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Si une instance existe déjà, quitter cette nouvelle instance
+  app.quit();
+} else {
+  // Si quelqu'un essaie de lancer une deuxième instance, focus la fenêtre existante
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,

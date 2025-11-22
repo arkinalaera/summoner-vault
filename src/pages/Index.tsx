@@ -214,8 +214,8 @@ const Index = () => {
     return;
   }
 
-  // Cache duration: only refresh accounts older than 1 hour
-  const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+  // Cache duration: only refresh accounts older than 10 minutes
+  const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
   const now = Date.now();
 
   // Filter accounts that need refresh (older than 1 hour)
@@ -257,11 +257,13 @@ const Index = () => {
         rankTier: soloTier,
         rankDivision: soloDiv,
         gamesCount: riot.soloGamesCount,
+        leaguePoints: riot.soloLeaguePoints,
 
         // FLEX
         flexRankTier: flexTier,
         flexRankDivision: flexDiv,
         flexGamesCount: riot.flexGamesCount,
+        flexLeaguePoints: riot.flexLeaguePoints,
 
         updatedAt: new Date().toISOString(),
       };
@@ -269,14 +271,12 @@ const Index = () => {
       // Save to storage and update in array
       await storage.updateAccount(updated);
       updatedAccounts[accountIndex] = updated;
-
-      // Update UI progressively as each account is processed
-      setAccounts([...updatedAccounts]);
     } catch (err) {
       console.error(`Failed to sync ${acc.summonerName}:`, err);
     }
   }
 
+  // Update UI only once after all accounts are processed
   setAccounts(updatedAccounts);
 };
 
@@ -310,11 +310,45 @@ const Index = () => {
         description: "Account updated successfully",
       });
     } else {
-      await storage.addAccount(account);
-      toast({
-        title: "Success",
-        description: "Account added successfully",
-      });
+      // Pour un nouveau compte, récupérer automatiquement les données de l'API Riot
+      try {
+        const riot = await fetchSummonerData(account.summonerName, account.region);
+
+        const soloTier = normalizeTier(riot.soloRankTier);
+        const soloDiv = normalizeDivision(riot.soloRankDivision);
+        const flexTier = normalizeTier(riot.flexRankTier);
+        const flexDiv = normalizeDivision(riot.flexRankDivision);
+
+        const updatedAccount: Account = {
+          ...account,
+          summonerName: riot.summonerName,
+          iconUrl: riot.iconUrl,
+          rankTier: soloTier,
+          rankDivision: soloDiv,
+          gamesCount: riot.soloGamesCount,
+          leaguePoints: riot.soloLeaguePoints,
+          flexRankTier: flexTier,
+          flexRankDivision: flexDiv,
+          flexGamesCount: riot.flexGamesCount,
+          flexLeaguePoints: riot.flexLeaguePoints,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await storage.addAccount(updatedAccount);
+        toast({
+          title: "Success",
+          description: "Account added and synced with Riot API",
+        });
+      } catch (error) {
+        // Si l'API échoue, sauvegarder quand même le compte avec les données fournies
+        console.error("Failed to sync with Riot API:", error);
+        await storage.addAccount(account);
+        toast({
+          title: "Account added",
+          description: "Unable to sync with Riot API. You can refresh the account later.",
+          variant: "destructive",
+        });
+      }
     }
     await loadAccounts();
     setEditingAccount(undefined);
@@ -441,11 +475,13 @@ const Index = () => {
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
     try {
-      // Force refresh all accounts by clearing updatedAt temporarily
+      // Force refresh all accounts
       const localAccounts = await storage.getAccounts();
       const accountsToRefresh = [...localAccounts];
+      const updatedAccounts = [...localAccounts];
 
-      for (const acc of accountsToRefresh) {
+      for (let i = 0; i < accountsToRefresh.length; i++) {
+        const acc = accountsToRefresh[i];
         try {
           const riot = await fetchSummonerData(acc.summonerName, acc.region);
 
@@ -461,20 +497,23 @@ const Index = () => {
             rankTier: soloTier,
             rankDivision: soloDiv,
             gamesCount: riot.soloGamesCount,
+            leaguePoints: riot.soloLeaguePoints,
             flexRankTier: flexTier,
             flexRankDivision: flexDiv,
             flexGamesCount: riot.flexGamesCount,
+            flexLeaguePoints: riot.flexLeaguePoints,
             updatedAt: new Date().toISOString(),
           };
 
           await storage.updateAccount(updated);
+          updatedAccounts[i] = updated;
+
+          // Update UI progressively to show progress
+          setAccounts([...updatedAccounts]);
         } catch (err) {
           console.error(`Failed to refresh ${acc.summonerName}:`, err);
         }
       }
-
-      // Reload accounts after refresh
-      await loadAccounts();
 
       toast({
         title: "Comptes mis à jour",
@@ -489,6 +528,54 @@ const Index = () => {
       });
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleRefreshAccount = async (accountId: string) => {
+    const account = accounts.find((acc) => acc.id === accountId);
+    if (!account) return;
+
+    try {
+      const riot = await fetchSummonerData(account.summonerName, account.region);
+
+      const soloTier = normalizeTier(riot.soloRankTier);
+      const soloDiv = normalizeDivision(riot.soloRankDivision);
+      const flexTier = normalizeTier(riot.flexRankTier);
+      const flexDiv = normalizeDivision(riot.flexRankDivision);
+
+      const updated: Account = {
+        ...account,
+        summonerName: riot.summonerName,
+        iconUrl: riot.iconUrl,
+        rankTier: soloTier,
+        rankDivision: soloDiv,
+        gamesCount: riot.soloGamesCount,
+        leaguePoints: riot.soloLeaguePoints,
+        flexRankTier: flexTier,
+        flexRankDivision: flexDiv,
+        flexGamesCount: riot.flexGamesCount,
+        flexLeaguePoints: riot.flexLeaguePoints,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await storage.updateAccount(updated);
+
+      // Update the account in the list
+      setAccounts((prev) =>
+        prev.map((acc) => (acc.id === accountId ? updated : acc))
+      );
+
+      toast({
+        title: "Compte mis à jour",
+        description: `${account.summonerName} a été rafraîchi avec succès.`,
+      });
+    } catch (error) {
+      console.error(`Failed to refresh ${account.summonerName}:`, error);
+      toast({
+        title: "Erreur de rafraîchissement",
+        description: `Impossible de mettre à jour ${account.summonerName}.`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -755,6 +842,7 @@ const Index = () => {
                 onEdit={handleEditAccount}
                 onDelete={handleDeleteAccount}
                 onLogin={handleLoginAccount}
+                onRefresh={handleRefreshAccount}
                 loginState={loginStatuses[account.id]}
                 loginDisabled={disableLoginButtons}
                 loginDisabledReason={loginDisabledReason}

@@ -109,6 +109,11 @@ export const AccountDialog = ({
       rankTier: formData.rankTier as RankTier,
       rankDivision: formData.rankDivision as RankDivision | undefined,
       gamesCount: formData.gamesCount ?? account?.gamesCount ?? 0,
+      leaguePoints: formData.leaguePoints ?? account?.leaguePoints,
+      flexRankTier: formData.flexRankTier as RankTier | undefined,
+      flexRankDivision: formData.flexRankDivision as RankDivision | undefined,
+      flexGamesCount: formData.flexGamesCount ?? account?.flexGamesCount,
+      flexLeaguePoints: formData.flexLeaguePoints ?? account?.flexLeaguePoints,
       login: formData.login || "",
       password: formData.password || "",
       iconUrl: formData.iconUrl,
@@ -142,15 +147,15 @@ export const AccountDialog = ({
         ...prev,
         summonerName: data.summonerName,
         iconUrl: data.iconUrl,
-        // Ces champs restent gérés automatiquement, même s'ils ne sont plus dans l'UI
-
-        soloRankTier: data.soloRankTier as RankTier,
-        soloRankDivision : data.soloRankDivision as RankDivision,
-        soloGamesCount: data.soloGamesCount,
+        // Map API response to Account fields
+        rankTier: data.soloRankTier as RankTier,
+        rankDivision: data.soloRankDivision as RankDivision,
+        gamesCount: data.soloGamesCount,
+        leaguePoints: data.soloLeaguePoints,
         flexRankTier: data.flexRankTier as RankTier,
         flexRankDivision: data.flexRankDivision as RankDivision,
-        flexGamesCount: data.flexGamesCount
-
+        flexGamesCount: data.flexGamesCount,
+        flexLeaguePoints: data.flexLeaguePoints
       }));
 
       toast({
