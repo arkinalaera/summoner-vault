@@ -142,17 +142,17 @@ export const AccountCard = memo(function AccountCard({
       </div>
 
       {/* Rang + logo */}
-      <div className="flex items-center gap-8 min-w-[360px]">
+      <div className="flex items-center gap-6 min-w-[380px]">
         {/* SOLOQ */}
-        <div className="flex items-center gap-3">
-          <div className="w-16 h-16 flex items-center justify-center">
+        <div className="flex items-center gap-3 w-[160px]">
+          <div className="w-16 h-16 flex-shrink-0">
             <img
               src={soloEmblemSrc}
               alt={soloTier}
-              className="max-w-full max-h-full object-contain drop-shadow-md"
+              className="w-full h-full object-contain drop-shadow-md"
             />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span className="text-xs uppercase text-muted-foreground tracking-wide">
               SoloQ
             </span>
@@ -170,15 +170,15 @@ export const AccountCard = memo(function AccountCard({
         </div>
 
         {/* FLEX */}
-        <div className="flex items-center gap-3">
-          <div className="w-16 h-16 flex items-center justify-center">
+        <div className="flex items-center gap-3 w-[160px]">
+          <div className="w-16 h-16 flex-shrink-0">
             <img
               src={flexEmblemSrc}
               alt={flexTier}
-              className="max-w-full max-h-full object-contain drop-shadow-md"
+              className="w-full h-full object-contain drop-shadow-md"
             />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span className="text-xs uppercase text-muted-foreground tracking-wide">
               Flex
             </span>

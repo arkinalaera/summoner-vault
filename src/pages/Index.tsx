@@ -41,7 +41,6 @@ import { Link } from "react-router-dom";
 
 const Index = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [filteredAccounts, setFilteredAccounts] = useState<Account[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRank, setFilterRank] = useState<string>("all");
   const [filterRegion, setFilterRegion] = useState<string>("all");
@@ -93,8 +92,28 @@ const Index = () => {
     }
   };
 
-  useEffect(() => {
-    applyFilters();
+  // Use useMemo to compute filtered accounts instead of useEffect
+  const filteredAccounts = useMemo(() => {
+    let filtered = accounts;
+
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (acc) =>
+          acc.summonerName.toLowerCase().includes(lowerQuery) ||
+          acc.accountName?.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    if (filterRank !== "all") {
+      filtered = filtered.filter((acc) => acc.rankTier === filterRank);
+    }
+
+    if (filterRegion !== "all") {
+      filtered = filtered.filter((acc) => acc.region === filterRegion);
+    }
+
+    return filtered;
   }, [accounts, searchQuery, filterRank, filterRegion]);
 
   useEffect(() => {
@@ -210,7 +229,6 @@ const Index = () => {
   setAccounts(localAccounts);
 
   if (localAccounts.length === 0) {
-    setFilteredAccounts([]);
     return;
   }
 
@@ -280,28 +298,6 @@ const Index = () => {
   setAccounts(updatedAccounts);
 };
 
-  const applyFilters = () => {
-    let filtered = [...accounts];
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (acc) =>
-          acc.summonerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          acc.accountName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (filterRank !== "all") {
-      filtered = filtered.filter((acc) => acc.rankTier === filterRank);
-    }
-
-    if (filterRegion !== "all") {
-      filtered = filtered.filter((acc) => acc.region === filterRegion);
-    }
-
-    setFilteredAccounts(filtered);
-  };
-
   const handleSaveAccount = async (account: Account) => {
     if (editingAccount) {
       await storage.updateAccount(account);
@@ -354,15 +350,15 @@ const Index = () => {
     setEditingAccount(undefined);
   };
 
-  const handleEditAccount = (account: Account) => {
+  const handleEditAccount = useCallback((account: Account) => {
     setEditingAccount(account);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleDeleteAccount = (id: string) => {
+  const handleDeleteAccount = useCallback((id: string) => {
     setAccountToDelete(id);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
   const confirmDelete = async () => {
     if (accountToDelete) {
@@ -377,12 +373,26 @@ const Index = () => {
     setAccountToDelete(null);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     setEditingAccount(undefined);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const moveAccount = async (sourceId: string, targetId: string) => {
+  // Debounce storage save during drag to prevent main thread blocking
+  const saveAccountsDebounced = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout | null = null;
+      return (accounts: Account[]) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          storage.saveAccounts(accounts);
+        }, 500); // Save 500ms after last drag movement
+      };
+    })(),
+    []
+  );
+
+  const moveAccount = useCallback((sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
     setAccounts((previous) => {
       const sourceIndex = previous.findIndex((acc) => acc.id === sourceId);
@@ -393,10 +403,10 @@ const Index = () => {
       const updated = [...previous];
       const [removed] = updated.splice(sourceIndex, 1);
       updated.splice(targetIndex, 0, removed);
-      storage.saveAccounts(updated);
+      saveAccountsDebounced(updated); // Debounced save
       return updated;
     });
-  };
+  }, [saveAccountsDebounced]);
 
   const handleLoginAccount = async (account: Account) => {
     const api = window.api;
@@ -459,18 +469,18 @@ const Index = () => {
     }
   };
 
-  const handleDragStartAccount = (account: Account) => {
+  const handleDragStartAccount = useCallback((account: Account) => {
     setDraggingAccountId(account.id);
-  };
+  }, []);
 
-  const handleDragEnterAccount = (account: Account) => {
+  const handleDragEnterAccount = useCallback((account: Account) => {
     if (!draggingAccountId) return;
     moveAccount(draggingAccountId, account.id);
-  };
+  }, [draggingAccountId]);
 
-  const handleDragEndAccount = () => {
+  const handleDragEndAccount = useCallback(() => {
     setDraggingAccountId(null);
-  };
+  }, []);
 
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
@@ -507,13 +517,13 @@ const Index = () => {
 
           await storage.updateAccount(updated);
           updatedAccounts[i] = updated;
-
-          // Update UI progressively to show progress
-          setAccounts([...updatedAccounts]);
         } catch (err) {
           console.error(`Failed to refresh ${acc.summonerName}:`, err);
         }
       }
+
+      // Update UI once after all accounts are refreshed
+      setAccounts(updatedAccounts);
 
       toast({
         title: "Comptes mis à jour",
@@ -531,7 +541,7 @@ const Index = () => {
     }
   };
 
-  const handleRefreshAccount = async (accountId: string) => {
+  const handleRefreshAccount = useCallback(async (accountId: string) => {
     const account = accounts.find((acc) => acc.id === accountId);
     if (!account) return;
 
@@ -577,7 +587,7 @@ const Index = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [accounts, toast]);
 
   const handleToggleAutoAccept = async (nextValue: boolean) => {
     const api = window.api;
@@ -623,6 +633,12 @@ const Index = () => {
 
     await api.quitApp();
   };
+
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("");
+    setFilterRank("all");
+    setFilterRegion("all");
+  }, []);
 
   const handleSaveWelcomeApiKey = async () => {
     const api = window.api;
@@ -798,11 +814,7 @@ const Index = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilterRank("all");
-                  setFilterRegion("all");
-                }}
+                onClick={handleClearFilters}
               >
                 Clear filters
               </Button>

@@ -82,13 +82,10 @@ function createWindow() {
     });
   }
 
-  // Intercepter la fermeture pour minimiser dans le tray au lieu de quitter
-  mainWindow.on("close", (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-      return false;
-    }
+  // Intercepter le minimize pour cacher dans le tray
+  mainWindow.on("minimize", (event) => {
+    event.preventDefault();
+    mainWindow.hide();
   });
 
   mainWindow.on("closed", () => {
