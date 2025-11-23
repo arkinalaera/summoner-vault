@@ -8,11 +8,19 @@ const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
+// Cache for the encryption key to avoid regenerating it every time
+let cachedKey = null;
+
 /**
  * Generate a deterministic encryption key based on machine ID
  * This ensures the same key is used on the same machine
  */
 function getEncryptionKey() {
+  // Return cached key if available
+  if (cachedKey) {
+    return cachedKey;
+  }
+
   try {
     // Get unique machine ID
     const machineId = machineIdSync();
@@ -28,6 +36,9 @@ function getEncryptionKey() {
       KEY_LENGTH,
       "sha256"
     );
+
+    // Cache the key for future use
+    cachedKey = key;
 
     return key;
   } catch (error) {

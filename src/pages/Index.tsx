@@ -60,7 +60,17 @@ const Index = () => {
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const [welcomeApiKey, setWelcomeApiKey] = useState("");
   const [isSavingWelcomeApiKey, setIsSavingWelcomeApiKey] = useState(false);
+  const [loadingOperations, setLoadingOperations] = useState<string[]>([]);
   const { toast } = useToast();
+
+  // Helper functions to manage loading state
+  const addLoadingOperation = useCallback((operation: string) => {
+    setLoadingOperations(prev => [...prev, operation]);
+  }, []);
+
+  const removeLoadingOperation = useCallback((operation: string) => {
+    setLoadingOperations(prev => prev.filter(op => op !== operation));
+  }, []);
   const isLeaguePathMissing = leaguePath.trim().length === 0;
   const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
   const loginDisabledReason = isLeaguePathMissing
@@ -250,6 +260,7 @@ const Index = () => {
   }
 
   console.log(`Refreshing ${accountsToRefresh.length}/${localAccounts.length} accounts...`);
+  addLoadingOperation(`Syncing ${accountsToRefresh.length} account(s)`);
 
   // Process accounts sequentially to respect rate limits
   const updatedAccounts = [...localAccounts];
@@ -296,6 +307,7 @@ const Index = () => {
 
   // Update UI only once after all accounts are processed
   setAccounts(updatedAccounts);
+  removeLoadingOperation(`Syncing ${accountsToRefresh.length} account(s)`);
 };
 
   const handleSaveAccount = async (account: Account) => {
@@ -307,6 +319,7 @@ const Index = () => {
       });
     } else {
       // Pour un nouveau compte, récupérer automatiquement les données de l'API Riot
+      addLoadingOperation("Adding new account");
       try {
         const riot = await fetchSummonerData(account.summonerName, account.region);
 
@@ -344,6 +357,8 @@ const Index = () => {
           description: "Unable to sync with Riot API. You can refresh the account later.",
           variant: "destructive",
         });
+      } finally {
+        removeLoadingOperation("Adding new account");
       }
     }
     await loadAccounts();
@@ -484,6 +499,7 @@ const Index = () => {
 
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
+    addLoadingOperation(`Refreshing all ${accounts.length} account(s)`);
     try {
       // Force refresh all accounts
       const localAccounts = await storage.getAccounts();
@@ -537,6 +553,7 @@ const Index = () => {
         variant: "destructive",
       });
     } finally {
+      removeLoadingOperation(`Refreshing all ${accounts.length} account(s)`);
       setIsRefreshing(false);
     }
   };
@@ -545,6 +562,7 @@ const Index = () => {
     const account = accounts.find((acc) => acc.id === accountId);
     if (!account) return;
 
+    addLoadingOperation(`Refreshing ${account.summonerName}`);
     try {
       const riot = await fetchSummonerData(account.summonerName, account.region);
 
@@ -586,8 +604,10 @@ const Index = () => {
         description: `Impossible de mettre à jour ${account.summonerName}.`,
         variant: "destructive",
       });
+    } finally {
+      removeLoadingOperation(`Refreshing ${account.summonerName}`);
     }
-  }, [accounts, toast]);
+  }, [accounts, toast, addLoadingOperation, removeLoadingOperation]);
 
   const handleToggleAutoAccept = async (nextValue: boolean) => {
     const api = window.api;
@@ -960,6 +980,25 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Loading Indicator - Fixed Bottom Right */}
+      {loadingOperations.length > 0 && (
+        <div className="fixed bottom-4 right-4 bg-card border border-border rounded-lg shadow-lg p-4 max-w-xs z-50">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-card-foreground">
+                Loading...
+              </span>
+              <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                {loadingOperations.map((op, index) => (
+                  <div key={index}>{op}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

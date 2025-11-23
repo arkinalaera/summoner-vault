@@ -2,6 +2,22 @@ import { Account } from "@/types/account";
 
 const STORAGE_KEY = "lol_accounts";
 
+// In-memory cache for decrypted accounts
+let accountsCache: Account[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache
+
+// Cache invalidation helper
+function invalidateCache() {
+  accountsCache = null;
+  cacheTimestamp = 0;
+}
+
+// Check if cache is still valid
+function isCacheValid(): boolean {
+  return accountsCache !== null && (Date.now() - cacheTimestamp) < CACHE_DURATION;
+}
+
 /**
  * Decrypt accounts when reading from storage
  */
@@ -44,12 +60,23 @@ async function encryptAccounts(accounts: Account[]): Promise<Account[]> {
 
 export const storage = {
   getAccounts: async (): Promise<Account[]> => {
+    // Return cached data if still valid
+    if (isCacheValid() && accountsCache) {
+      return [...accountsCache]; // Return a copy to prevent mutations
+    }
+
     try {
       const data = localStorage.getItem(STORAGE_KEY);
       const accounts = data ? JSON.parse(data) : [];
 
       // Decrypt accounts before returning
-      return await decryptAccounts(accounts);
+      const decrypted = await decryptAccounts(accounts);
+
+      // Update cache
+      accountsCache = decrypted;
+      cacheTimestamp = Date.now();
+
+      return decrypted;
     } catch (error) {
       console.error("Error reading from localStorage:", error);
       return [];
@@ -61,6 +88,9 @@ export const storage = {
       // Encrypt accounts before saving
       const encrypted = await encryptAccounts(accounts);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
+
+      // Invalidate cache since data changed
+      invalidateCache();
     } catch (error) {
       console.error("Error saving to localStorage:", error);
     }
