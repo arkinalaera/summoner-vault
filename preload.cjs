@@ -14,6 +14,7 @@ const API_CHANNELS = {
   encryptAccount: "encrypt:account",
   decryptAccount: "decrypt:account",
   appQuit: "app:quit",
+  setAvailability: "lol:set-availability",
 };
 
 contextBridge.exposeInMainWorld("api", {
@@ -49,6 +50,9 @@ contextBridge.exposeInMainWorld("api", {
   },
   quitApp() {
     return ipcRenderer.invoke(API_CHANNELS.appQuit);
+  },
+  setAvailability(status) {
+    return ipcRenderer.invoke(API_CHANNELS.setAvailability, status);
   },
   onLoginStatus(callback) {
     if (typeof callback !== "function") {

@@ -34,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Search, Filter, Settings, LogOut, RefreshCw } from "lucide-react";
+import { Plus, Search, Filter, Settings, LogOut, RefreshCw, Circle, Smartphone } from "lucide-react";
 import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -61,6 +61,7 @@ const Index = () => {
   const [welcomeApiKey, setWelcomeApiKey] = useState("");
   const [isSavingWelcomeApiKey, setIsSavingWelcomeApiKey] = useState(false);
   const [loadingOperations, setLoadingOperations] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<string>("chat");
   const { toast } = useToast();
 
   // Helper functions to manage loading state
@@ -654,6 +655,45 @@ const Index = () => {
     await api.quitApp();
   };
 
+  const handleAvailabilityChange = useCallback(async (newStatus: string) => {
+    const api = (window as any).api;
+    if (!api?.setAvailability) {
+      toast({
+        title: "Fonctionnalité indisponible",
+        description: "La fonctionnalité de changement de statut n'est pas disponible.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await api.setAvailability(newStatus);
+      setAvailability(newStatus);
+
+      const statusLabels: Record<string, string> = {
+        chat: "En ligne",
+        away: "Absent",
+        offline: "Hors ligne",
+        mobile: "Mobile"
+      };
+
+      toast({
+        title: "Statut modifié",
+        description: `Ton statut a été changé en : ${statusLabels[newStatus] || newStatus}`,
+      });
+    } catch (error) {
+      console.error("Failed to set availability:", error);
+      toast({
+        title: "Échec du changement de statut",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Impossible de modifier le statut.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   const handleClearFilters = useCallback(() => {
     setSearchQuery("");
     setFilterRank("all");
@@ -734,6 +774,23 @@ const Index = () => {
                 >
                   Auto Accept
                 </label>
+              </div>
+              <div className="flex items-center gap-2">
+                {availability === "chat" && <Circle className="h-4 w-4 fill-green-500 text-green-500" />}
+                {availability === "away" && <Circle className="h-4 w-4 fill-red-500 text-red-500" />}
+                {availability === "offline" && <Circle className="h-4 w-4 fill-gray-500 text-gray-500" />}
+                {availability === "mobile" && <Smartphone className="h-4 w-4 text-blue-500" />}
+                <Select value={availability} onValueChange={handleAvailabilityChange}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="chat">En ligne</SelectItem>
+                    <SelectItem value="away">Absent</SelectItem>
+                    <SelectItem value="offline">Hors ligne</SelectItem>
+                    <SelectItem value="mobile">Mobile</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button onClick={handleAddNew} className="gap-2">
                 <Plus className="h-4 w-4" />

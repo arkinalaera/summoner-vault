@@ -267,6 +267,19 @@ function registerIpcHandlers() {
     app.quit();
   });
 
+  // Availability status handler
+  ipcMain.handle("lol:set-availability", async (_event, status) => {
+    if (!readyCheckService) {
+      throw new Error("Ready check service not initialized");
+    }
+    try {
+      return await readyCheckService.setAvailability(status);
+    } catch (error) {
+      console.error("Failed to set availability:", error);
+      throw error;
+    }
+  });
+
   // Encryption handlers
   ipcMain.handle("encrypt:account", async (_event, account) => {
     try {

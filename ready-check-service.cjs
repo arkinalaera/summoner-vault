@@ -245,6 +245,52 @@ class ReadyCheckService {
     return String(value).trim().toLowerCase();
   }
 
+  async setAvailability(status) {
+    // status: "chat", "away", "offline", "mobile", "dnd"
+    const lockInfo = await this.ensureLockInfo();
+    if (!lockInfo) {
+      throw new Error("League client not connected");
+    }
+
+    try {
+      // Send body with availability set
+      await this.requestLcU(lockInfo, {
+        method: "PUT",
+        path: "/lol-chat/v1/me",
+        body: {
+          summonerId: 0,
+          id: "",
+          name: "",
+          pid: "",
+          puuid: "",
+          obfuscatedSummonerId: 0,
+          gameName: "",
+          gameTag: "",
+          icon: 0,
+          availability: status,
+          platformId: "",
+          patchline: "",
+          product: "",
+          productName: "",
+          summary: "",
+          time: 0,
+          statusMessage: "",
+          lastSeenOnlineTimestamp: "",
+          lol: {}
+        },
+      });
+
+      console.log("[ReadyCheckService]", `Availability set to: ${status}`);
+      return { success: true, availability: status };
+    } catch (error) {
+      console.error("[ReadyCheckService]", "Failed to set availability:", error);
+      if (error && error.statusCode === 401) {
+        this.lockInfo = null;
+      }
+      throw error;
+    }
+  }
+
   logError(context, error) {
     const now = Date.now();
     if (now - this.lastErrorLoggedAt > 5000) {
