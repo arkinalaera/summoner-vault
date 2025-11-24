@@ -744,7 +744,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
@@ -792,7 +792,7 @@ const Index = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAddNew} className="gap-2">
+              <Button onClick={handleAddNew} className="gap-2 bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4" />
                 Add Account
               </Button>
@@ -823,7 +823,7 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Filters */}
         <div className="bg-card rounded-xl p-6 shadow-card border border-border mb-6">
           <div className="flex items-center gap-2 mb-4">

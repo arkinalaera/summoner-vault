@@ -1,10 +1,12 @@
 import { Account } from "@/types/account";
 import { Button } from "./ui/button";
-import { Clipboard, Edit2, Trash2, RefreshCw } from "lucide-react";
+import { Clipboard, Edit2, Trash2, RefreshCw, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { rankEmblemUrl } from "@/lib/rank";
 import { memo, useState } from "react";
+import { fetchDetailedStats, DetailedStats } from "@/lib/riot-api";
+import { AccountDetailsPanel } from "./AccountDetailsPanel";
 
 interface AccountCardProps {
   account: Account;
@@ -37,6 +39,10 @@ export const AccountCard = memo(function AccountCard({
 }: AccountCardProps) {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [detailedStats, setDetailedStats] = useState<DetailedStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const handleCopySummonerName = async () => {
     try {
@@ -61,6 +67,30 @@ export const AccountCard = memo(function AccountCard({
       await onRefresh(account.id);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleToggleExpand = async () => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+
+    // Si on expand et qu'on n'a pas encore les stats, les charger
+    if (newExpanded && !detailedStats && !isLoadingStats) {
+      setIsLoadingStats(true);
+      setStatsError(null);
+      try {
+        const stats = await fetchDetailedStats(account.summonerName, account.region);
+        setDetailedStats(stats);
+      } catch (error) {
+        console.error("Failed to fetch detailed stats:", error);
+        setStatsError(
+          error instanceof Error
+            ? error.message
+            : "Impossible de charger les statistiques détaillées."
+        );
+      } finally {
+        setIsLoadingStats(false);
+      }
     }
   };
 
@@ -91,20 +121,31 @@ export const AccountCard = memo(function AccountCard({
     loginDisabledReason ?? (isLoginInProgress ? "Connexion en cours..." : undefined);
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-4 px-4 py-3",
-        draggable && "cursor-move"
+    <div>
+      <div
+        className={cn(
+          "relative flex items-center gap-4 py-3 transition-all duration-200 rounded-lg",
+          "hover:bg-accent/20 hover:shadow-sm",
+          "cursor-pointer",
+          draggable ? "pl-8 pr-4" : "px-4"
+        )}
+        draggable={draggable}
+        onClick={handleToggleExpand}
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move";
+          onDragStart?.(account);
+        }}
+        onDragEnter={() => onDragEnter?.(account)}
+        onDragEnd={() => onDragEnd?.()}
+        onDragOver={(event) => event.preventDefault()}
+      >
+      {/* Drag indicator - far left */}
+      {draggable && (
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none">
+          <GripVertical className="h-5 w-5 text-muted-foreground/30" />
+        </div>
       )}
-      draggable={draggable}
-      onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = "move";
-        onDragStart?.(account);
-      }}
-      onDragEnter={() => onDragEnter?.(account)}
-      onDragEnd={() => onDragEnd?.()}
-      onDragOver={(event) => event.preventDefault()}
-    >
+
       {/* Icône invocateur */}
       <div className="flex items-center gap-3 min-w-[220px]">
         <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center">
@@ -197,13 +238,16 @@ export const AccountCard = memo(function AccountCard({
       </div>
 
       {/* Actions */}
-      <div className="ml-auto flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+      <div className="ml-auto flex flex-col gap-3 md:flex-row md:items-center md:gap-4 pr-12">
         <div className="flex flex-col gap-1 min-w-[170px]">
           <Button
             type="button"
             size="sm"
-            className="gap-2"
-            onClick={() => onLogin(account)}
+            className="gap-2 bg-blue-600 hover:bg-blue-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLogin(account);
+            }}
             disabled={loginButtonDisabled}
             title={loginButtonTitle}
           >
@@ -218,18 +262,24 @@ export const AccountCard = memo(function AccountCard({
           <Button
             variant="outline"
             size="sm"
-            onClick={handleRefresh}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRefresh();
+            }}
             disabled={isRefreshing}
             className="gap-1"
             title="Rafraîchir ce compte"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            
+
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onEdit(account)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(account);
+            }}
             className="gap-1"
           >
             <Edit2 className="w-4 h-4" />
@@ -238,7 +288,10 @@ export const AccountCard = memo(function AccountCard({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onDelete(account.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(account.id);
+            }}
             className="gap-1 text-destructive border-destructive/40"
           >
             <Trash2 className="w-4 h-4" />
@@ -246,6 +299,25 @@ export const AccountCard = memo(function AccountCard({
           </Button>
         </div>
       </div>
+
+        {/* Expand/Collapse Icon - Fixed position */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+          {isExpanded ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          )}
+        </div>
+      </div>
+
+      {/* Detailed Stats Panel */}
+      {isExpanded && (
+        <AccountDetailsPanel
+          stats={detailedStats}
+          isLoading={isLoadingStats}
+          error={statsError}
+        />
+      )}
     </div>
   );
 });

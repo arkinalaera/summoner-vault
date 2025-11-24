@@ -1,6 +1,5 @@
 import { Region } from "@/types/account";
 import { RankDivision,RankTier } from "@/types/account";
-import { Underline } from "lucide-react";
 
 // Default API key (fallback if user doesn't provide their own)
 const DEFAULT_RIOT_API_KEY = "RGAPI-62da639c-d4dc-447d-817c-538ffbbcc098";
@@ -178,6 +177,46 @@ export function normalizeDivision(rank?: string): RankDivision | undefined {
     : undefined;
 }
 
+export interface ChampionMastery {
+  championId: number;
+  championLevel: number;
+  championPoints: number;
+  championName?: string;
+  championIcon?: string;
+}
+
+export interface MatchHistoryEntry {
+  matchId: string;
+  champion: string;
+  championIcon: string;
+  win: boolean;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gameMode: string;
+  gameDuration: number;
+  timestamp: number;
+  cs: number;
+}
+
+export interface DetailedStats {
+  championMastery: ChampionMastery[];
+  matchHistory: MatchHistoryEntry[];
+  winrate: {
+    wins: number;
+    losses: number;
+    total: number;
+    percentage: number;
+  };
+  averageKDA: {
+    kills: number;
+    deaths: number;
+    assists: number;
+    ratio: number;
+  };
+  averageCS: number;
+}
+
 export async function fetchSummonerData(
   summonerName: string,
   region: Region
@@ -259,6 +298,193 @@ export async function fetchSummonerData(
     };
   } catch (error) {
     console.error("Riot API Error:", error);
+    throw error;
+  }
+}
+
+// Champion data cache
+let championDataCache: Record<number, { name: string; id: string }> | null = null;
+
+async function getChampionData(): Promise<Record<number, { name: string; id: string }>> {
+  if (championDataCache) {
+    return championDataCache;
+  }
+
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.1.1/data/en_US/champion.json');
+    const data = await response.json();
+
+    const championMap: Record<number, { name: string; id: string }> = {};
+    Object.values(data.data).forEach((champ: any) => {
+      championMap[parseInt(champ.key)] = {
+        name: champ.name,
+        id: champ.id
+      };
+    });
+
+    championDataCache = championMap;
+    return championMap;
+  } catch (error) {
+    console.error("Failed to fetch champion data:", error);
+    return {};
+  }
+}
+
+export async function fetchDetailedStats(
+  summonerName: string,
+  region: Region
+): Promise<DetailedStats> {
+  try {
+    const routing = REGION_ROUTING[region];
+    const platform = REGION_PLATFORM[region];
+
+    // 1) Get PUUID
+    const [gameName, tagLineFallback] = summonerName.split("#");
+    const tagLine = tagLineFallback || region;
+    const accountUrl = `https://${routing}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(
+      gameName
+    )}/${encodeURIComponent(tagLine)}`;
+
+    const accountResponse = await rateLimitedFetch(accountUrl, {
+      headers: { "X-Riot-Token": RIOT_API_KEY },
+    });
+    if (!accountResponse.ok) {
+      throw new Error(`Summoner not found: ${accountResponse.status}`);
+    }
+    const accountData = await accountResponse.json();
+    const puuid: string = accountData.puuid;
+
+    // Get champion data for mapping
+    const championData = await getChampionData();
+
+    // 2) Fetch Champion Mastery (top 5)
+    const masteryUrl = `https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=5`;
+    const masteryResponse = await rateLimitedFetch(masteryUrl, {
+      headers: { "X-Riot-Token": RIOT_API_KEY },
+    });
+
+    let championMastery: ChampionMastery[] = [];
+    if (masteryResponse.ok) {
+      const masteryData = await masteryResponse.json();
+      championMastery = masteryData.map((m: any) => {
+        const champ = championData[m.championId];
+        return {
+          championId: m.championId,
+          championLevel: m.championLevel,
+          championPoints: m.championPoints,
+          championName: champ?.name || `Champion ${m.championId}`,
+          championIcon: champ?.id ? `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champ.id}.png` : undefined
+        };
+      });
+    }
+
+    // 3) Fetch Match History
+    // Get current season start timestamp (Season 2025 started January 9, 2025)
+    const season2025Start = new Date('2025-01-09').getTime();
+
+    // Fetch only 30 matches for faster loading (good balance between stats accuracy and speed)
+    const matchIdsUrl = `https://${routing}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=30&startTime=${Math.floor(season2025Start / 1000)}`;
+    const matchIdsResponse = await rateLimitedFetch(matchIdsUrl, {
+      headers: { "X-Riot-Token": RIOT_API_KEY },
+    });
+
+    let matchHistory: MatchHistoryEntry[] = [];
+    let totalKills = 0;
+    let totalDeaths = 0;
+    let totalAssists = 0;
+    let totalCS = 0;
+    let wins = 0;
+    let losses = 0;
+
+    if (matchIdsResponse.ok) {
+      const matchIds: string[] = await matchIdsResponse.json();
+
+      // Fetch matches in batches to respect rate limits and improve performance
+      const BATCH_SIZE = 10; // Process 10 matches at a time for faster loading
+      const allMatches: MatchHistoryEntry[] = [];
+
+      for (let i = 0; i < matchIds.length; i += BATCH_SIZE) {
+        const batch = matchIds.slice(i, i + BATCH_SIZE);
+
+        const batchPromises = batch.map(async (matchId) => {
+          const matchUrl = `https://${routing}.api.riotgames.com/lol/match/v5/matches/${matchId}`;
+          const matchResponse = await rateLimitedFetch(matchUrl, {
+            headers: { "X-Riot-Token": RIOT_API_KEY },
+          });
+
+          if (!matchResponse.ok) return null;
+
+          const matchData = await matchResponse.json();
+          const participant = matchData.info.participants.find((p: any) => p.puuid === puuid);
+
+          if (!participant) return null;
+
+          const champ = championData[participant.championId];
+          const win = participant.win;
+          const cs = participant.totalMinionsKilled + participant.neutralMinionsKilled;
+
+          if (win) wins++;
+          else losses++;
+
+          totalKills += participant.kills;
+          totalDeaths += participant.deaths;
+          totalAssists += participant.assists;
+          totalCS += cs;
+
+          return {
+            matchId,
+            champion: champ?.name || `Champion ${participant.championId}`,
+            championIcon: champ?.id ? `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champ.id}.png` : '',
+            win,
+            kills: participant.kills,
+            deaths: participant.deaths,
+            assists: participant.assists,
+            gameMode: matchData.info.gameMode,
+            gameDuration: matchData.info.gameDuration,
+            timestamp: matchData.info.gameCreation,
+            cs
+          };
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        allMatches.push(...batchResults.filter((m): m is MatchHistoryEntry => m !== null));
+      }
+
+      // Keep only first 10 for display in history
+      matchHistory = allMatches.slice(0, 10);
+    }
+
+    // Calculate averages based on ALL matches, not just the 10 displayed
+    const totalGamesPlayed = wins + losses;
+    const gamesPlayed = totalGamesPlayed || 1;
+    const avgKills = totalKills / gamesPlayed;
+    const avgDeaths = totalDeaths / gamesPlayed || 1;
+    const avgAssists = totalAssists / gamesPlayed;
+    const avgCS = totalCS / gamesPlayed;
+    const kdaRatio = (avgKills + avgAssists) / avgDeaths;
+
+    const total = wins + losses;
+    const winrate = total > 0 ? (wins / total) * 100 : 0;
+
+    return {
+      championMastery,
+      matchHistory,
+      winrate: {
+        wins,
+        losses,
+        total,
+        percentage: winrate
+      },
+      averageKDA: {
+        kills: avgKills,
+        deaths: avgDeaths,
+        assists: avgAssists,
+        ratio: kdaRatio
+      },
+      averageCS: avgCS
+    };
+  } catch (error) {
+    console.error("Failed to fetch detailed stats:", error);
     throw error;
   }
 }

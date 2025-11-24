@@ -42,10 +42,10 @@ if (!gotTheLock) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 900,
-    minHeight: 600,
+    width: 1600,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 700,
     backgroundColor: "#050816",
     title: "LoL Account Manager",
     icon: path.join(__dirname, "resources", "favicon.ico"),
