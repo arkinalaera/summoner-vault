@@ -23,6 +23,7 @@ class ChampionSelectService {
     this.hasBanned = false;
     this.hasPrePicked = false;
     this.hasPicked = false;
+    this.hasLocked = false;
   }
 
   setLeaguePath(nextPath) {
@@ -97,6 +98,7 @@ class ChampionSelectService {
           this.hasBanned = false;
           this.hasPrePicked = false;
           this.hasPicked = false;
+          this.hasLocked = false;
         }
       }
 
@@ -142,8 +144,8 @@ class ChampionSelectService {
         }
       }
 
-      // Handle PICK phase - Actual pick
-      if (currentPhase === "BAN_PICK" && this.championToPick && !this.hasPicked) {
+      // Handle PICK phase - Actual pick and lock
+      if (currentPhase === "BAN_PICK" && this.championToPick && !this.hasLocked) {
         // Check if it's our turn to pick
         const actions = session.actions || [];
         for (const actionGroup of actions) {
@@ -154,8 +156,58 @@ class ChampionSelectService {
               !action.completed &&
               action.isInProgress
             ) {
-              await this.performPick(lockInfo, action.id, this.championToPick);
-              this.hasPicked = true;
+              console.log("[ChampionSelectService]", "Pick action found:", {
+                actionId: action.id,
+                championId: action.championId,
+                wantedChampion: this.championToPick,
+                isInProgress: action.isInProgress,
+              });
+
+              // Check if champion is already selected on this action
+              const championAlreadySelected = action.championId === this.championToPick;
+
+              if (!championAlreadySelected) {
+                // Select the champion first
+                const selectSuccess = await this.selectChampion(lockInfo, action.id, this.championToPick);
+                if (!selectSuccess) {
+                  console.log("[ChampionSelectService]", "Failed to select champion, will retry next tick");
+                  break;
+                }
+                this.hasPicked = true;
+
+                // Wait a bit longer after selecting before locking
+                await this.sleep(500);
+              }
+
+              // Re-fetch the session to verify the champion is now selected
+              const updatedSession = await this.requestLcU(lockInfo, {
+                method: "GET",
+                path: "/lol-champ-select/v1/session",
+              });
+
+              // Find our action again and verify champion is selected
+              let currentChampionId = 0;
+              for (const ag of updatedSession.actions || []) {
+                for (const a of ag) {
+                  if (a.id === action.id) {
+                    currentChampionId = a.championId;
+                    break;
+                  }
+                }
+              }
+
+              console.log("[ChampionSelectService]", "Current champion on action:", currentChampionId);
+
+              if (currentChampionId !== this.championToPick) {
+                console.log("[ChampionSelectService]", "Champion not yet selected on action, waiting...");
+                break;
+              }
+
+              // Now lock it in
+              const lockSuccess = await this.lockInChampion(lockInfo, action.id, this.championToPick);
+              if (lockSuccess) {
+                this.hasLocked = true;
+              }
               break;
             }
           }
@@ -227,7 +279,7 @@ class ChampionSelectService {
     }
   }
 
-  async performPick(lockInfo, actionId, championId) {
+  async selectChampion(lockInfo, actionId, championId) {
     try {
       await this.requestLcU(lockInfo, {
         method: "PATCH",
@@ -236,29 +288,71 @@ class ChampionSelectService {
           championId: championId,
         },
       });
+      console.log("[ChampionSelectService]", `Champion ${championId} selected`);
+      return true;
+    } catch (error) {
+      console.error("[ChampionSelectService]", "Failed to select champion:", error);
+      if (error && error.body) {
+        console.error("[ChampionSelectService]", "Error body:", JSON.stringify(error.body));
+      }
+      return false;
+    }
+  }
 
-      // Complete the pick
+  async lockInChampion(lockInfo, actionId, championId) {
+    try {
+      // First, make sure the champion is selected on this action with a PATCH
       await this.requestLcU(lockInfo, {
-        method: "POST",
-        path: `/lol-champ-select/v1/session/actions/${actionId}/complete`,
+        method: "PATCH",
+        path: `/lol-champ-select/v1/session/actions/${actionId}`,
+        body: {
+          championId: championId,
+          completed: true,
+        },
       });
 
-      console.log("[ChampionSelectService]", `Champion ${championId} picked automatically`);
+      console.log("[ChampionSelectService]", `Champion ${championId} locked in successfully via PATCH`);
       this.sendStatus({
         step: "champion-select",
         kind: "success",
-        message: `Champion pick automatiquement.`,
+        message: `Champion pick et verrouillé automatiquement.`,
         timestamp: Date.now(),
       });
+      return true;
     } catch (error) {
-      console.error("[ChampionSelectService]", "Failed to pick champion:", error);
-      this.sendStatus({
-        step: "champion-select",
-        kind: "error",
-        message: `Échec du pick automatique.`,
-        timestamp: Date.now(),
-      });
+      console.error("[ChampionSelectService]", "Failed to lock in champion via PATCH:", error);
+      if (error && error.body) {
+        console.error("[ChampionSelectService]", "Lock error body:", JSON.stringify(error.body));
+      }
+
+      // Fallback: try the POST /complete endpoint
+      try {
+        console.log("[ChampionSelectService]", "Trying fallback POST /complete endpoint...");
+        await this.requestLcU(lockInfo, {
+          method: "POST",
+          path: `/lol-champ-select/v1/session/actions/${actionId}/complete`,
+        });
+
+        console.log("[ChampionSelectService]", `Champion locked in successfully via POST /complete`);
+        this.sendStatus({
+          step: "champion-select",
+          kind: "success",
+          message: `Champion pick et verrouillé automatiquement.`,
+          timestamp: Date.now(),
+        });
+        return true;
+      } catch (fallbackError) {
+        console.error("[ChampionSelectService]", "Fallback also failed:", fallbackError);
+        if (fallbackError && fallbackError.body) {
+          console.error("[ChampionSelectService]", "Fallback error body:", JSON.stringify(fallbackError.body));
+        }
+        return false;
+      }
     }
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   resetSessionState() {
@@ -268,6 +362,7 @@ class ChampionSelectService {
       this.hasBanned = false;
       this.hasPrePicked = false;
       this.hasPicked = false;
+      this.hasLocked = false;
     }
   }
 
