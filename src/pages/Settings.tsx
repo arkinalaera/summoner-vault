@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { FolderOpen, ArrowLeft, FlaskConical } from "lucide-react";
-import { Link } from "react-router-dom";
+import { FolderOpen, ArrowLeft, FlaskConical, BookOpen } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { reloadApiKey } from "@/lib/riot-api";
 
 const Settings = () => {
@@ -14,6 +14,7 @@ const Settings = () => {
   const [rankedStatsResult, setRankedStatsResult] = useState<string | null>(null);
   const [isTestingRankedStats, setIsTestingRankedStats] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const api = window.api;
@@ -227,6 +228,33 @@ const Settings = () => {
           <p className="text-xs text-muted-foreground">
             Si vide, l'application utilisera la clé API par défaut (limites plus basses).
           </p>
+        </div>
+
+        {/* Restart Onboarding Guide */}
+        <div className="bg-card rounded-xl p-6 shadow-card border border-border space-y-4">
+          <div>
+            <h2 className="font-semibold text-card-foreground">
+              Guide d'utilisation
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Relance le tutoriel interactif pour découvrir les fonctionnalités de l'application.
+            </p>
+          </div>
+
+          <Button
+            onClick={() => {
+              localStorage.removeItem('onboarding-completed');
+              toast({
+                title: "Guide relancé",
+                description: "Le tutoriel va démarrer sur la page d'accueil.",
+              });
+              navigate('/');
+            }}
+            className="gap-2"
+          >
+            <BookOpen className="h-4 w-4" />
+            Relancer le guide
+          </Button>
         </div>
 
         {/* Test Ranked Stats / Decay Info */}

@@ -39,6 +39,7 @@ import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { CHAMPIONS, getChampionById } from "@/constants/champions";
+import { OnboardingGuide } from "@/components/OnboardingGuide";
 
 const Index = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -67,6 +68,7 @@ const Index = () => {
   const [pickChampionId, setPickChampionId] = useState<number | null>(null);
   const [banChampionId, setBanChampionId] = useState<number | null>(null);
   const [isRefreshingDecay, setIsRefreshingDecay] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const { toast } = useToast();
 
   // Helper functions to manage loading state
@@ -102,6 +104,11 @@ const Index = () => {
       // If no API key is set, show welcome dialog
       if (!existingApiKey || existingApiKey.trim().length === 0) {
         setShowWelcomeDialog(true);
+      } else {
+        // API key exists, check if onboarding should be shown
+        if (!localStorage.getItem('onboarding-completed')) {
+          setShowOnboarding(true);
+        }
       }
     } catch (error) {
       console.error("Failed to check API key:", error);
@@ -921,6 +928,10 @@ const Index = () => {
       await api.setRiotApiKey(welcomeApiKey);
       await reloadApiKey();
       setShowWelcomeDialog(false);
+      // Check if onboarding should be shown after welcome dialog
+      if (!localStorage.getItem('onboarding-completed')) {
+        setShowOnboarding(true);
+      }
       toast({
         title: "Bienvenue !",
         description: "Ta clé API a été configurée avec succès.",
@@ -939,10 +950,19 @@ const Index = () => {
 
   const handleSkipWelcome = () => {
     setShowWelcomeDialog(false);
+    // Check if onboarding should be shown after welcome dialog
+    if (!localStorage.getItem('onboarding-completed')) {
+      setShowOnboarding(true);
+    }
     toast({
       title: "Configuration ignorée",
       description: "L'application utilisera la clé API par défaut. Tu peux configurer ta propre clé dans les Paramètres.",
     });
+  };
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('onboarding-completed', 'true');
+    setShowOnboarding(false);
   };
 
   // Rafraîchir le decay du compte actuellement connecté au client LoL
@@ -1033,7 +1053,7 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2" title="Activer cette fonctionnalité pour accepter automatiquement les matchs">
+              <div data-onboarding="auto-accept" className="flex items-center gap-2" title="Activer cette fonctionnalité pour accepter automatiquement les matchs">
                 <Checkbox
                   id="auto-accept-header"
                   checked={autoAcceptEnabled}
@@ -1051,7 +1071,7 @@ const Index = () => {
               </div>
 
               {/* Auto Pick/Ban */}
-              <div className="flex items-center gap-2 border-l border-border pl-4">
+              <div data-onboarding="auto-pick-ban" className="flex items-center gap-2 border-l border-border pl-4">
                 <Checkbox
                   id="auto-pick-ban"
                   checked={autoPickBanEnabled}
@@ -1104,7 +1124,7 @@ const Index = () => {
                 </Select>
               </div>
 
-              <div className="flex items-center gap-2 border-l border-border pl-4">
+              <div data-onboarding="availability" className="flex items-center gap-2 border-l border-border pl-4">
                 {availability === "chat" && <Circle className="h-4 w-4 fill-green-500 text-green-500" />}
                 {availability === "away" && <Circle className="h-4 w-4 fill-red-500 text-red-500" />}
                 {availability === "offline" && <Circle className="h-4 w-4 fill-gray-500 text-gray-500" />}
@@ -1121,11 +1141,12 @@ const Index = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAddNew} className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button data-onboarding="add-account" onClick={handleAddNew} className="gap-2 bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4" />
                 Add Account
               </Button>
               <Button
+                data-onboarding="decay-refresh"
                 variant="outline"
                 size="icon"
                 onClick={handleRefreshConnectedDecay}
@@ -1135,6 +1156,7 @@ const Index = () => {
                 <Clock className={`h-5 w-5 ${isRefreshingDecay ? 'animate-spin' : ''}`} />
               </Button>
               <Button
+                data-onboarding="refresh-all"
                 variant="outline"
                 size="icon"
                 onClick={handleRefreshAll}
@@ -1143,7 +1165,7 @@ const Index = () => {
               >
                 <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
-              <Button variant="secondary" size="icon" asChild>
+              <Button data-onboarding="settings" variant="secondary" size="icon" asChild>
                 <Link to="/settings">
                   <Settings className="h-6 w-6" />
                 </Link>
@@ -1393,6 +1415,11 @@ const Index = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Onboarding Guide */}
+      {showOnboarding && (
+        <OnboardingGuide onComplete={handleOnboardingComplete} />
       )}
     </div>
   );

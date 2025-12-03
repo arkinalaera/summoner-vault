@@ -89,3 +89,37 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* ========== ONBOARDING ANIMATIONS ========== */
+@keyframes onboarding-arrow-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes onboarding-spotlight-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.75; }
+}
+
+@keyframes onboarding-tooltip-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.onboarding-arrow {
+  animation: onboarding-arrow-bounce 1s ease-in-out infinite;
+}
+
+.onboarding-overlay {
+  animation: onboarding-spotlight-pulse 2s ease-in-out infinite;
+}
+
+.onboarding-tooltip {
+  animation: onboarding-tooltip-enter 0.3s ease-out;
+}
