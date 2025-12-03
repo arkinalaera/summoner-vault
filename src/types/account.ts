@@ -39,4 +39,14 @@ export interface Account {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+
+  // Auto pick/ban settings
+  autoPickBanEnabled?: boolean;
+  pickChampionId?: number;
+  banChampionId?: number;
+
+  // Decay info (from LCU API - only for Diamond+)
+  soloDecayDays?: number;
+  flexDecayDays?: number;
+  decayLastUpdated?: string;
 }

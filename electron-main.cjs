@@ -6,6 +6,7 @@ const http = require("http");
 const handler = require("serve-handler");
 const { LoginManager } = require("./login-manager.cjs");
 const { ReadyCheckService } = require("./ready-check-service.cjs");
+const { ChampionSelectService } = require("./champion-select-service.cjs");
 const { encryptAccount, decryptAccount } = require("./encryption.cjs");
 
 let mainWindow;
@@ -20,6 +21,7 @@ let settings = {
 let ipcRegistered = false;
 let loginManager;
 let readyCheckService;
+let championSelectService;
 
 const isDev = !app.isPackaged; // true en dev, false dans le .exe
 
@@ -171,6 +173,16 @@ function sendReadyStatus(payload) {
   mainWindow.webContents.send("lol:ready-status", payload);
 }
 
+function sendChampionSelectStatus(payload) {
+  if (!mainWindow) return;
+  mainWindow.webContents.send("lol:champion-select-status", payload);
+}
+
+function sendDecayUpdate(payload) {
+  if (!mainWindow) return;
+  mainWindow.webContents.send("lol:decay-update", payload);
+}
+
 function registerIpcHandlers() {
   if (ipcRegistered) return;
   ipcRegistered = true;
@@ -178,10 +190,15 @@ function registerIpcHandlers() {
     loginManager = new LoginManager(sendLoginStatus);
   }
   if (!readyCheckService) {
-    readyCheckService = new ReadyCheckService(sendReadyStatus);
+    readyCheckService = new ReadyCheckService(sendReadyStatus, sendDecayUpdate);
     readyCheckService.setLeaguePath(settings.leaguePath);
     readyCheckService.setAutoAcceptEnabled(settings.autoAcceptEnabled);
     readyCheckService.start();
+  }
+  if (!championSelectService) {
+    championSelectService = new ChampionSelectService(sendChampionSelectStatus);
+    championSelectService.setLeaguePath(settings.leaguePath);
+    championSelectService.start();
   }
 
   ipcMain.handle("lol:path:get", async () => {
@@ -193,6 +210,9 @@ function registerIpcHandlers() {
     await saveSettings();
     if (readyCheckService) {
       readyCheckService.setLeaguePath(settings.leaguePath);
+    }
+    if (championSelectService) {
+      championSelectService.setLeaguePath(settings.leaguePath);
     }
     return settings.leaguePath || null;
   });
@@ -229,6 +249,9 @@ function registerIpcHandlers() {
     await saveSettings();
     if (readyCheckService) {
       readyCheckService.setLeaguePath(settings.leaguePath);
+    }
+    if (championSelectService) {
+      championSelectService.setLeaguePath(settings.leaguePath);
     }
     return selectedPath;
   });
@@ -278,6 +301,55 @@ function registerIpcHandlers() {
       console.error("Failed to set availability:", error);
       throw error;
     }
+  });
+
+  // Champion select auto-pick/ban handlers
+  ipcMain.handle("lol:champion-select:set-settings", async (_event, { accountId, enabled, pickChampionId, banChampionId }) => {
+    if (!championSelectService) {
+      throw new Error("Champion select service not initialized");
+    }
+    try {
+      championSelectService.setAutoPickBanSettings({
+        enabled,
+        pickChampionId,
+        banChampionId,
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to set champion select settings:", error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle("lol:champion-select:get-settings", async () => {
+    if (!championSelectService) {
+      return { enabled: false, pickChampionId: null, banChampionId: null };
+    }
+    return championSelectService.getAutoPickBanSettings();
+  });
+
+  // Test endpoint for ranked stats / decay info
+  ipcMain.handle("lol:ranked-stats:get", async () => {
+    if (!readyCheckService) {
+      throw new Error("Ready check service not initialized");
+    }
+    return await readyCheckService.getRankedStats();
+  });
+
+  // Get decay info for currently connected account
+  ipcMain.handle("lol:decay-info:get", async () => {
+    if (!readyCheckService) {
+      throw new Error("Ready check service not initialized");
+    }
+    return await readyCheckService.getDecayInfo();
+  });
+
+  // Get decay info with summoner identification (to match with stored accounts)
+  ipcMain.handle("lol:decay-info-with-summoner:get", async () => {
+    if (!readyCheckService) {
+      throw new Error("Ready check service not initialized");
+    }
+    return await readyCheckService.getDecayInfoWithSummoner();
   });
 
   // Encryption handlers

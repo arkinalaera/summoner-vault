@@ -25,6 +25,7 @@
       "electron-main.cjs",
       "login-manager.cjs",
       "ready-check-service.cjs",
+      "champion-select-service.cjs",
       "preload.cjs",
       "encryption.cjs",
       "package.json",

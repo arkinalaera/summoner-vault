@@ -5,15 +5,18 @@ const LOCK_REFRESH_INTERVAL_MS = 5000;
 const POLL_INTERVAL_MS = 4000;
 
 class ReadyCheckService {
-  constructor(sendStatus) {
+  constructor(sendStatus, sendDecayUpdate) {
     this.sendStatus = sendStatus;
+    this.sendDecayUpdate = sendDecayUpdate;
     this.leaguePath = "";
     this.lockInfo = null;
     this.lockfilePath = null;
     this.interval = null;
+    this.accountCheckInterval = null;
     this.agent = new https.Agent({ rejectUnauthorized: false });
     this.lastErrorLoggedAt = 0;
     this.autoAcceptEnabled = false;
+    this.lastConnectedPuuid = null; // Track connected account
   }
 
   setLeaguePath(nextPath) {
@@ -37,12 +40,27 @@ class ReadyCheckService {
         this.logError("tick failure", error);
       });
     }, POLL_INTERVAL_MS);
+
+    // Start account detection interval (checks every 10 seconds)
+    if (!this.accountCheckInterval) {
+      this.accountCheckInterval = setInterval(() => {
+        this.checkConnectedAccount().catch(() => {
+          // Silent fail - don't spam logs
+        });
+      }, 10000);
+      // Also check immediately on start
+      this.checkConnectedAccount().catch(() => {});
+    }
   }
 
   stop() {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
+    }
+    if (this.accountCheckInterval) {
+      clearInterval(this.accountCheckInterval);
+      this.accountCheckInterval = null;
     }
   }
 
@@ -296,6 +314,213 @@ class ReadyCheckService {
     if (now - this.lastErrorLoggedAt > 5000) {
       console.warn("[ReadyCheckService]", context, error?.message ?? error);
       this.lastErrorLoggedAt = now;
+    }
+  }
+
+  // Check if a new account has connected and send decay info
+  async checkConnectedAccount() {
+    const lockInfo = await this.ensureLockInfo();
+    if (!lockInfo) {
+      // Client not running, reset tracking
+      if (this.lastConnectedPuuid !== null) {
+        console.log("[ReadyCheckService]", "Client disconnected, resetting account tracking");
+        this.lastConnectedPuuid = null;
+      }
+      return;
+    }
+
+    try {
+      // Get current summoner
+      const summoner = await this.requestLcU(lockInfo, {
+        method: "GET",
+        path: "/lol-summoner/v1/current-summoner",
+      });
+
+      if (!summoner?.puuid) {
+        return;
+      }
+
+      // Check if this is a new account (different from last one)
+      if (this.lastConnectedPuuid === summoner.puuid) {
+        return; // Same account, no update needed
+      }
+
+      console.log("[ReadyCheckService]", "New account detected:", summoner.gameName || summoner.displayName);
+      this.lastConnectedPuuid = summoner.puuid;
+
+      // Get decay info for this account
+      const rankedStats = await this.requestLcU(lockInfo, {
+        method: "GET",
+        path: "/lol-ranked/v1/current-ranked-stats",
+      });
+
+      const soloQueue = rankedStats?.queueMap?.RANKED_SOLO_5x5;
+      const flexQueue = rankedStats?.queueMap?.RANKED_FLEX_SR;
+
+      const decayInfo = {
+        gameName: summoner?.gameName || summoner?.displayName || "",
+        tagLine: summoner?.tagLine || "",
+        summonerName: summoner?.displayName || "",
+        puuid: summoner?.puuid || "",
+        soloDecayDays: soloQueue?.warnings?.daysUntilDecay ?? -1,
+        flexDecayDays: flexQueue?.warnings?.daysUntilDecay ?? -1,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("[ReadyCheckService]", "Sending decay update:", decayInfo);
+
+      // Send to frontend
+      if (this.sendDecayUpdate) {
+        this.sendDecayUpdate(decayInfo);
+      }
+    } catch (error) {
+      // Silent fail - client might be in transition state
+      if (error && error.statusCode === 401) {
+        this.lockInfo = null;
+      }
+    }
+  }
+
+  // Test function to explore ranked stats and decay info
+  async getRankedStats() {
+    const lockInfo = await this.ensureLockInfo();
+    if (!lockInfo) {
+      throw new Error("League client not connected");
+    }
+
+    try {
+      // Try multiple endpoints to find decay info
+      const endpoints = [
+        "/lol-ranked/v1/current-ranked-stats",
+        "/lol-ranked/v1/ranked-stats",
+        "/lol-ranked/v1/eos-rewards",
+        "/lol-ranked/v1/splits-config",
+        "/lol-ranked/v2/tiers",
+      ];
+
+      const results = {};
+
+      for (const endpoint of endpoints) {
+        try {
+          const data = await this.requestLcU(lockInfo, {
+            method: "GET",
+            path: endpoint,
+          });
+          results[endpoint] = data;
+          console.log("[ReadyCheckService]", `${endpoint}:`, JSON.stringify(data, null, 2));
+        } catch (err) {
+          results[endpoint] = { error: err.message };
+          console.log("[ReadyCheckService]", `${endpoint} failed:`, err.message);
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error("[ReadyCheckService]", "Failed to get ranked stats:", error);
+      throw error;
+    }
+  }
+
+  // Get decay info for the currently connected account
+  async getDecayInfo() {
+    const lockInfo = await this.ensureLockInfo();
+    if (!lockInfo) {
+      throw new Error("League client not connected");
+    }
+
+    try {
+      const data = await this.requestLcU(lockInfo, {
+        method: "GET",
+        path: "/lol-ranked/v1/current-ranked-stats",
+      });
+
+      const soloQueue = data?.queueMap?.RANKED_SOLO_5x5;
+      const flexQueue = data?.queueMap?.RANKED_FLEX_SR;
+
+      const result = {
+        soloDecayDays: soloQueue?.warnings?.daysUntilDecay ?? -1,
+        flexDecayDays: flexQueue?.warnings?.daysUntilDecay ?? -1,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("[ReadyCheckService]", "Decay info:", result);
+      return result;
+    } catch (error) {
+      console.error("[ReadyCheckService]", "Failed to get decay info:", error);
+      throw error;
+    }
+  }
+
+  // Get current summoner info (to identify which account is connected)
+  async getCurrentSummoner() {
+    const lockInfo = await this.ensureLockInfo();
+    if (!lockInfo) {
+      throw new Error("League client not connected");
+    }
+
+    try {
+      // Get current summoner info
+      const summoner = await this.requestLcU(lockInfo, {
+        method: "GET",
+        path: "/lol-summoner/v1/current-summoner",
+      });
+
+      console.log("[ReadyCheckService]", "Current summoner:", summoner);
+
+      return {
+        gameName: summoner?.gameName || summoner?.displayName || "",
+        tagLine: summoner?.tagLine || "",
+        summonerName: summoner?.displayName || "",
+        puuid: summoner?.puuid || "",
+        summonerId: summoner?.summonerId || 0,
+        accountId: summoner?.accountId || 0,
+      };
+    } catch (error) {
+      console.error("[ReadyCheckService]", "Failed to get current summoner:", error);
+      throw error;
+    }
+  }
+
+  // Get decay info with summoner identification
+  async getDecayInfoWithSummoner() {
+    const lockInfo = await this.ensureLockInfo();
+    if (!lockInfo) {
+      throw new Error("League client not connected");
+    }
+
+    try {
+      // Get both summoner info and decay info in parallel
+      const [summoner, rankedStats] = await Promise.all([
+        this.requestLcU(lockInfo, {
+          method: "GET",
+          path: "/lol-summoner/v1/current-summoner",
+        }),
+        this.requestLcU(lockInfo, {
+          method: "GET",
+          path: "/lol-ranked/v1/current-ranked-stats",
+        }),
+      ]);
+
+      const soloQueue = rankedStats?.queueMap?.RANKED_SOLO_5x5;
+      const flexQueue = rankedStats?.queueMap?.RANKED_FLEX_SR;
+
+      const result = {
+        // Summoner identification
+        gameName: summoner?.gameName || summoner?.displayName || "",
+        tagLine: summoner?.tagLine || "",
+        summonerName: summoner?.displayName || "",
+        puuid: summoner?.puuid || "",
+        // Decay info
+        soloDecayDays: soloQueue?.warnings?.daysUntilDecay ?? -1,
+        flexDecayDays: flexQueue?.warnings?.daysUntilDecay ?? -1,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("[ReadyCheckService]", "Decay info with summoner:", result);
+      return result;
+    } catch (error) {
+      console.error("[ReadyCheckService]", "Failed to get decay info with summoner:", error);
+      throw error;
     }
   }
 }

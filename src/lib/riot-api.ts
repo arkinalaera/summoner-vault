@@ -278,7 +278,7 @@ export async function fetchSummonerData(
     const flexGames = flexQueue ? (flexQueue.wins ?? 0) + (flexQueue.losses ?? 0) : 0;
 
     // Data Dragon profile icon (version can be updated dynamically if needed)
-    const iconUrl = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/profileicon/${summonerData.profileIconId}.png`;
+    const iconUrl = `https://ddragon.leagueoflegends.com/cdn/15.23.1/img/profileicon/${summonerData.profileIconId}.png`;
 
     return {
       summonerName: `${accountData.gameName}#${accountData.tagLine}`,

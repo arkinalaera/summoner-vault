@@ -7,14 +7,21 @@ const API_CHANNELS = {
   loginAccount: "lol:account:login",
   loginStatus: "lol:login-status",
   readyStatus: "lol:ready-status",
+  championSelectStatus: "lol:champion-select-status",
   autoAcceptGet: "lol:auto-accept:get",
   autoAcceptSet: "lol:auto-accept:set",
+  championSelectSetSettings: "lol:champion-select:set-settings",
+  championSelectGetSettings: "lol:champion-select:get-settings",
   riotApiKeyGet: "riot:apikey:get",
   riotApiKeySet: "riot:apikey:set",
   encryptAccount: "encrypt:account",
   decryptAccount: "decrypt:account",
   appQuit: "app:quit",
   setAvailability: "lol:set-availability",
+  rankedStatsGet: "lol:ranked-stats:get",
+  decayInfoGet: "lol:decay-info:get",
+  decayInfoWithSummonerGet: "lol:decay-info-with-summoner:get",
+  decayUpdate: "lol:decay-update",
 };
 
 contextBridge.exposeInMainWorld("api", {
@@ -82,6 +89,51 @@ contextBridge.exposeInMainWorld("api", {
 
     return () => {
       ipcRenderer.removeListener(API_CHANNELS.readyStatus, listener);
+    };
+  },
+  onChampionSelectStatus(callback) {
+    if (typeof callback !== "function") {
+      return undefined;
+    }
+
+    const listener = (_event, payload) => {
+      callback(payload);
+    };
+
+    ipcRenderer.on(API_CHANNELS.championSelectStatus, listener);
+
+    return () => {
+      ipcRenderer.removeListener(API_CHANNELS.championSelectStatus, listener);
+    };
+  },
+  setChampionSelectSettings(settings) {
+    return ipcRenderer.invoke(API_CHANNELS.championSelectSetSettings, settings);
+  },
+  getChampionSelectSettings() {
+    return ipcRenderer.invoke(API_CHANNELS.championSelectGetSettings);
+  },
+  getRankedStats() {
+    return ipcRenderer.invoke(API_CHANNELS.rankedStatsGet);
+  },
+  getDecayInfo() {
+    return ipcRenderer.invoke(API_CHANNELS.decayInfoGet);
+  },
+  getDecayInfoWithSummoner() {
+    return ipcRenderer.invoke(API_CHANNELS.decayInfoWithSummonerGet);
+  },
+  onDecayUpdate(callback) {
+    if (typeof callback !== "function") {
+      return undefined;
+    }
+
+    const listener = (_event, payload) => {
+      callback(payload);
+    };
+
+    ipcRenderer.on(API_CHANNELS.decayUpdate, listener);
+
+    return () => {
+      ipcRenderer.removeListener(API_CHANNELS.decayUpdate, listener);
     };
   },
 });

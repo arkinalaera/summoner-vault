@@ -34,10 +34,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Search, Filter, Settings, LogOut, RefreshCw, Circle, Smartphone } from "lucide-react";
+import { Plus, Search, Filter, Settings, LogOut, RefreshCw, Circle, Smartphone, Swords, Ban, Clock } from "lucide-react";
 import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { CHAMPIONS, getChampionById } from "@/constants/champions";
 
 const Index = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -62,6 +63,10 @@ const Index = () => {
   const [isSavingWelcomeApiKey, setIsSavingWelcomeApiKey] = useState(false);
   const [loadingOperations, setLoadingOperations] = useState<string[]>([]);
   const [availability, setAvailability] = useState<string>("chat");
+  const [autoPickBanEnabled, setAutoPickBanEnabled] = useState(false);
+  const [pickChampionId, setPickChampionId] = useState<number | null>(null);
+  const [banChampionId, setBanChampionId] = useState<number | null>(null);
+  const [isRefreshingDecay, setIsRefreshingDecay] = useState(false);
   const { toast } = useToast();
 
   // Helper functions to manage loading state
@@ -157,7 +162,7 @@ const Index = () => {
       return;
     }
 
-    const unsubscribe = api.onLoginStatus((payload) => {
+    const unsubscribe = api.onLoginStatus(async (payload) => {
       setLoginStatuses((previous) => ({
         ...previous,
         [payload.accountId]: payload,
@@ -176,6 +181,41 @@ const Index = () => {
           description:
             payload.message ?? "League of Legends traite la connexion.",
         });
+
+        // After successful login, try to fetch decay info after a delay
+        // (wait for client to fully connect)
+        setTimeout(async () => {
+          try {
+            if (api?.getDecayInfo) {
+              const decayInfo = await api.getDecayInfo();
+
+              // Update the account with decay info
+              setAccounts((prev) => {
+                const updated = prev.map((acc) => {
+                  if (acc.id === payload.accountId) {
+                    return {
+                      ...acc,
+                      soloDecayDays: decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays : undefined,
+                      flexDecayDays: decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays : undefined,
+                      decayLastUpdated: decayInfo.timestamp,
+                    };
+                  }
+                  return acc;
+                });
+                // Save to storage
+                storage.saveAccounts(updated);
+                return updated;
+              });
+
+              toast({
+                title: "Decay mis à jour",
+                description: `Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "j" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "j" : "N/A"}`,
+              });
+            }
+          } catch (error) {
+            console.error("Failed to fetch decay info:", error);
+          }
+        }, 5000); // Wait 5 seconds for the client to be fully ready
       }
     });
 
@@ -234,6 +274,82 @@ const Index = () => {
 
     fetchAutoAccept();
   }, []);
+
+  // Load champion select settings on mount
+  useEffect(() => {
+    const api = window.api;
+    if (!api?.getChampionSelectSettings) {
+      return;
+    }
+
+    const fetchSettings = async () => {
+      try {
+        const settings = await api.getChampionSelectSettings();
+        setAutoPickBanEnabled(settings.enabled);
+        setPickChampionId(settings.pickChampionId);
+        setBanChampionId(settings.banChampionId);
+      } catch (error) {
+        console.error("Failed to retrieve champion select settings:", error);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  // Listen for automatic decay updates when an account connects
+  useEffect(() => {
+    const api = window.api;
+    if (!api?.onDecayUpdate) {
+      return;
+    }
+
+    const unsubscribe = api.onDecayUpdate(async (decayInfo) => {
+      if (!decayInfo) return;
+
+      // Find matching account by gameName, tagLine, or summonerName
+      const connectedName = decayInfo.gameName
+        ? `${decayInfo.gameName}#${decayInfo.tagLine}`.toLowerCase()
+        : decayInfo.summonerName.toLowerCase();
+
+      const matchingAccount = accounts.find((acc) => {
+        const accName = acc.summonerName.toLowerCase();
+        return (
+          accName === connectedName ||
+          accName === decayInfo.gameName?.toLowerCase() ||
+          accName === decayInfo.summonerName?.toLowerCase()
+        );
+      });
+
+      if (!matchingAccount) {
+        console.log("[DecayUpdate] Account not found in list:", decayInfo.gameName || decayInfo.summonerName);
+        return;
+      }
+
+      // Update the account with decay info
+      const updatedAccount: Account = {
+        ...matchingAccount,
+        soloDecayDays: decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays : undefined,
+        flexDecayDays: decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays : undefined,
+        decayLastUpdated: decayInfo.timestamp,
+      };
+
+      await storage.updateAccount(updatedAccount);
+      setAccounts((prev) =>
+        prev.map((acc) => (acc.id === matchingAccount.id ? updatedAccount : acc))
+      );
+
+      toast({
+        title: "Decay mis à jour automatiquement",
+        description: `${matchingAccount.summonerName} - Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "j" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "j" : "N/A"}`,
+      });
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [accounts, toast]);
 
  const loadAccounts = async () => {
   const localAccounts = await storage.getAccounts();
@@ -694,6 +810,95 @@ const Index = () => {
     }
   }, [toast]);
 
+  // Handler pour toggle auto pick/ban
+  const handleToggleAutoPickBan = async (checked: boolean) => {
+    const api = window.api;
+    if (!api?.setChampionSelectSettings) {
+      toast({
+        title: "Fonctionnalité indisponible",
+        description: "L'auto pick/ban n'est pas disponible.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await api.setChampionSelectSettings({
+        enabled: checked,
+        pickChampionId,
+        banChampionId,
+      });
+      setAutoPickBanEnabled(checked);
+      toast({
+        title: checked ? "Auto Pick/Ban activé" : "Auto Pick/Ban désactivé",
+        description: checked
+          ? "Le pick et ban automatique sont maintenant actifs."
+          : "Le pick et ban automatique sont désactivés.",
+      });
+    } catch (error) {
+      console.error("Failed to toggle auto pick/ban:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier les paramètres auto pick/ban.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler pour changer le champion à pick
+  const handlePickChampionChange = async (value: string) => {
+    const championId = value ? parseInt(value) : null;
+    const api = window.api;
+
+    if (!api?.setChampionSelectSettings) return;
+
+    try {
+      await api.setChampionSelectSettings({
+        enabled: autoPickBanEnabled,
+        pickChampionId: championId,
+        banChampionId,
+      });
+      setPickChampionId(championId);
+
+      if (championId) {
+        const champion = getChampionById(championId);
+        toast({
+          title: "Champion à pick défini",
+          description: `${champion?.name || "Champion"} sera automatiquement pick.`,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to set pick champion:", error);
+    }
+  };
+
+  // Handler pour changer le champion à ban
+  const handleBanChampionChange = async (value: string) => {
+    const championId = value ? parseInt(value) : null;
+    const api = window.api;
+
+    if (!api?.setChampionSelectSettings) return;
+
+    try {
+      await api.setChampionSelectSettings({
+        enabled: autoPickBanEnabled,
+        pickChampionId,
+        banChampionId: championId,
+      });
+      setBanChampionId(championId);
+
+      if (championId) {
+        const champion = getChampionById(championId);
+        toast({
+          title: "Champion à ban défini",
+          description: `${champion?.name || "Champion"} sera automatiquement ban.`,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to set ban champion:", error);
+    }
+  };
+
   const handleClearFilters = useCallback(() => {
     setSearchQuery("");
     setFilterRank("all");
@@ -740,6 +945,75 @@ const Index = () => {
     });
   };
 
+  // Rafraîchir le decay du compte actuellement connecté au client LoL
+  const handleRefreshConnectedDecay = async () => {
+    const api = window.api;
+    if (!api?.getDecayInfoWithSummoner) {
+      toast({
+        title: "Fonctionnalité indisponible",
+        description: "Impossible de récupérer les infos de decay.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRefreshingDecay(true);
+    try {
+      const decayInfo = await api.getDecayInfoWithSummoner();
+
+      // Chercher le compte correspondant par gameName#tagLine ou summonerName
+      const connectedName = decayInfo.gameName
+        ? `${decayInfo.gameName}#${decayInfo.tagLine}`.toLowerCase()
+        : decayInfo.summonerName.toLowerCase();
+
+      const matchingAccount = accounts.find((acc) => {
+        const accName = acc.summonerName.toLowerCase();
+        // Correspondance exacte ou correspondance partielle (gameName sans tagLine)
+        return (
+          accName === connectedName ||
+          accName === decayInfo.gameName?.toLowerCase() ||
+          accName === decayInfo.summonerName?.toLowerCase()
+        );
+      });
+
+      if (!matchingAccount) {
+        toast({
+          title: "Compte non trouvé",
+          description: `Le compte connecté (${decayInfo.gameName || decayInfo.summonerName}) n'est pas dans ta liste de comptes.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Mettre à jour le compte avec les infos de decay
+      const updatedAccount: Account = {
+        ...matchingAccount,
+        soloDecayDays: decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays : undefined,
+        flexDecayDays: decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays : undefined,
+        decayLastUpdated: decayInfo.timestamp,
+      };
+
+      await storage.updateAccount(updatedAccount);
+      setAccounts((prev) =>
+        prev.map((acc) => (acc.id === matchingAccount.id ? updatedAccount : acc))
+      );
+
+      toast({
+        title: "Decay mis à jour",
+        description: `${matchingAccount.summonerName} - Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "j" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "j" : "N/A"}`,
+      });
+    } catch (error) {
+      console.error("Failed to refresh decay:", error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de récupérer les infos de decay. Vérifie que le client LoL est connecté.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshingDecay(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -775,7 +1049,62 @@ const Index = () => {
                   Auto Accept
                 </label>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Auto Pick/Ban */}
+              <div className="flex items-center gap-2 border-l border-border pl-4">
+                <Checkbox
+                  id="auto-pick-ban"
+                  checked={autoPickBanEnabled}
+                  onCheckedChange={(checked) =>
+                    handleToggleAutoPickBan(Boolean(checked))
+                  }
+                />
+                <label
+                  htmlFor="auto-pick-ban"
+                  className="text-sm font-medium text-card-foreground cursor-pointer"
+                  title="Active le pick et ban automatique en champion select"
+                >
+                  Auto Pick/Ban
+                </label>
+
+                {/* Pick Champion Select */}
+                <Select
+                  value={pickChampionId?.toString() || ""}
+                  onValueChange={handlePickChampionChange}
+                  disabled={!autoPickBanEnabled}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Pick..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {CHAMPIONS.map((champion) => (
+                      <SelectItem key={champion.id} value={champion.id.toString()}>
+                        {champion.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Ban Champion Select */}
+                <Select
+                  value={banChampionId?.toString() || ""}
+                  onValueChange={handleBanChampionChange}
+                  disabled={!autoPickBanEnabled}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Ban..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {CHAMPIONS.map((champion) => (
+                      <SelectItem key={champion.id} value={champion.id.toString()}>
+                        {champion.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2 border-l border-border pl-4">
                 {availability === "chat" && <Circle className="h-4 w-4 fill-green-500 text-green-500" />}
                 {availability === "away" && <Circle className="h-4 w-4 fill-red-500 text-red-500" />}
                 {availability === "offline" && <Circle className="h-4 w-4 fill-gray-500 text-gray-500" />}
@@ -795,6 +1124,15 @@ const Index = () => {
               <Button onClick={handleAddNew} className="gap-2 bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4" />
                 Add Account
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefreshConnectedDecay}
+                disabled={isRefreshingDecay}
+                title="Rafraîchir le decay du compte connecté"
+              >
+                <Clock className={`h-5 w-5 ${isRefreshingDecay ? 'animate-spin' : ''}`} />
               </Button>
               <Button
                 variant="outline"

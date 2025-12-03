@@ -22,6 +22,30 @@ declare global {
     timestamp?: number;
   }
 
+  interface ChampionSelectStatusPayload {
+    step: string;
+    kind?: "info" | "success" | "error";
+    message?: string;
+    timestamp?: number;
+  }
+
+  interface DecayUpdatePayload {
+    gameName: string;
+    tagLine: string;
+    summonerName: string;
+    puuid: string;
+    soloDecayDays: number;
+    flexDecayDays: number;
+    timestamp: string;
+  }
+
+  interface ChampionSelectSettings {
+    accountId?: string;
+    enabled: boolean;
+    pickChampionId: number | null;
+    banChampionId: number | null;
+  }
+
   interface LeagueDesktopApi {
     selectLeaguePath: () => Promise<string | null>;
     getLeaguePath: () => Promise<string | null>;
@@ -39,6 +63,18 @@ declare global {
     ) => (() => void) | void;
     onReadyStatus: (
       callback: (payload: ReadyStatusPayload) => void
+    ) => (() => void) | void;
+    onChampionSelectStatus: (
+      callback: (payload: ChampionSelectStatusPayload) => void
+    ) => (() => void) | void;
+    setChampionSelectSettings: (settings: ChampionSelectSettings) => Promise<{ success: boolean }>;
+    getChampionSelectSettings: () => Promise<ChampionSelectSettings>;
+    setAvailability: (status: string) => Promise<any>;
+    getRankedStats: () => Promise<any>;
+    getDecayInfo: () => Promise<{ soloDecayDays: number; flexDecayDays: number; timestamp: string }>;
+    getDecayInfoWithSummoner: () => Promise<DecayUpdatePayload>;
+    onDecayUpdate: (
+      callback: (payload: DecayUpdatePayload) => void
     ) => (() => void) | void;
   }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { FolderOpen, ArrowLeft } from "lucide-react";
+import { FolderOpen, ArrowLeft, FlaskConical } from "lucide-react";
 import { Link } from "react-router-dom";
 import { reloadApiKey } from "@/lib/riot-api";
 
@@ -11,6 +11,8 @@ const Settings = () => {
   const [isPersistingLeaguePath, setIsPersistingLeaguePath] = useState(false);
   const [riotApiKey, setRiotApiKey] = useState("");
   const [isPersistingApiKey, setIsPersistingApiKey] = useState(false);
+  const [rankedStatsResult, setRankedStatsResult] = useState<string | null>(null);
+  const [isTestingRankedStats, setIsTestingRankedStats] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -225,6 +227,67 @@ const Settings = () => {
           <p className="text-xs text-muted-foreground">
             Si vide, l'application utilisera la clé API par défaut (limites plus basses).
           </p>
+        </div>
+
+        {/* Test Ranked Stats / Decay Info */}
+        <div className="bg-card rounded-xl p-6 shadow-card border border-border space-y-4">
+          <div>
+            <h2 className="font-semibold text-card-foreground">
+              Test API LCU - Ranked Stats
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Teste les endpoints LCU pour trouver les informations de decay.
+              Le client League doit être ouvert.
+            </p>
+          </div>
+
+          <Button
+            onClick={async () => {
+              const api = window.api;
+              if (!api?.getRankedStats) {
+                toast({
+                  title: "Fonctionnalité indisponible",
+                  description: "L'API de test n'est pas disponible.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              setIsTestingRankedStats(true);
+              setRankedStatsResult(null);
+
+              try {
+                const result = await api.getRankedStats();
+                setRankedStatsResult(JSON.stringify(result, null, 2));
+                toast({
+                  title: "Test réussi",
+                  description: "Les résultats sont affichés ci-dessous.",
+                });
+              } catch (error) {
+                setRankedStatsResult(
+                  `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`
+                );
+                toast({
+                  title: "Erreur",
+                  description: "Impossible de récupérer les stats. Le client League est-il ouvert ?",
+                  variant: "destructive",
+                });
+              } finally {
+                setIsTestingRankedStats(false);
+              }
+            }}
+            disabled={isTestingRankedStats}
+            className="gap-2"
+          >
+            <FlaskConical className="h-4 w-4" />
+            {isTestingRankedStats ? "Test en cours..." : "Tester les endpoints"}
+          </Button>
+
+          {rankedStatsResult && (
+            <pre className="bg-muted p-4 rounded-lg text-xs overflow-auto max-h-[400px] whitespace-pre-wrap">
+              {rankedStatsResult}
+            </pre>
+          )}
         </div>
       </div>
     </div>

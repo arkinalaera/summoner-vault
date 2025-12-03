@@ -1,12 +1,21 @@
 import { Account } from "@/types/account";
 import { Button } from "./ui/button";
-import { Clipboard, Edit2, Trash2, RefreshCw, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { Clipboard, Edit2, Trash2, RefreshCw, ChevronDown, ChevronUp, GripVertical, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { rankEmblemUrl } from "@/lib/rank";
 import { memo, useState } from "react";
 import { fetchDetailedStats, DetailedStats } from "@/lib/riot-api";
 import { AccountDetailsPanel } from "./AccountDetailsPanel";
+
+// Helper function to get decay color based on days remaining
+function getDecayColor(days: number | undefined): string {
+  if (days === undefined || days < 0) return "";
+  if (days <= 3) return "text-red-500"; // Critical - 3 days or less
+  if (days <= 7) return "text-orange-500"; // Warning - 7 days or less
+  if (days <= 14) return "text-yellow-500"; // Caution - 14 days or less
+  return "text-green-500"; // Safe - more than 14 days
+}
 
 interface AccountCardProps {
   account: Account;
@@ -183,9 +192,9 @@ export const AccountCard = memo(function AccountCard({
       </div>
 
       {/* Rang + logo */}
-      <div className="flex items-center gap-6 min-w-[380px]">
+      <div className="flex items-center gap-6 min-w-[440px]">
         {/* SOLOQ */}
-        <div className="flex items-center gap-3 w-[160px]">
+        <div className="flex items-center gap-3 w-[190px]">
           <div className="w-16 h-16 flex-shrink-0">
             <img
               src={soloEmblemSrc}
@@ -200,18 +209,24 @@ export const AccountCard = memo(function AccountCard({
             <span className="text-sm font-medium">
               {soloTier === "Unranked"
                 ? "Unranked"
-                : (soloTier === "Master" || soloTier === "Grandmaster" || soloTier === "Challenger")
-                ? `${soloTier} ${account.leaguePoints ?? 0} LP`
-                : `${soloTier} ${account.rankDivision ?? ""}`}
+                : `${soloTier} ${account.rankDivision ?? ""} ${account.leaguePoints ?? 0} LP`}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {(account.gamesCount ?? 0)} games
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {(account.gamesCount ?? 0)} games
+              </span>
+              {account.soloDecayDays !== undefined && account.soloDecayDays >= 0 && (
+                <span className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(account.soloDecayDays))}>
+                  <Clock className="h-3 w-3" />
+                  {account.soloDecayDays}j
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* FLEX */}
-        <div className="flex items-center gap-3 w-[160px]">
+        <div className="flex items-center gap-3 w-[190px]">
           <div className="w-16 h-16 flex-shrink-0">
             <img
               src={flexEmblemSrc}
@@ -226,13 +241,19 @@ export const AccountCard = memo(function AccountCard({
             <span className="text-sm font-medium">
               {flexTier === "Unranked"
                 ? "Unranked"
-                : (flexTier === "Master" || flexTier === "Grandmaster" || flexTier === "Challenger")
-                ? `${flexTier} ${account.flexLeaguePoints ?? 0} LP`
-                : `${flexTier} ${account.flexRankDivision ?? ""}`}
+                : `${flexTier} ${account.flexRankDivision ?? ""} ${account.flexLeaguePoints ?? 0} LP`}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {(account.flexGamesCount ?? 0)} games
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {(account.flexGamesCount ?? 0)} games
+              </span>
+              {account.flexDecayDays !== undefined && account.flexDecayDays >= 0 && (
+                <span className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(account.flexDecayDays))}>
+                  <Clock className="h-3 w-3" />
+                  {account.flexDecayDays}j
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
