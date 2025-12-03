@@ -7,6 +7,7 @@ import { rankEmblemUrl } from "@/lib/rank";
 import { memo, useState } from "react";
 import { fetchDetailedStats, DetailedStats } from "@/lib/riot-api";
 import { AccountDetailsPanel } from "./AccountDetailsPanel";
+import { getDecayInfo } from "@/lib/decay";
 
 // Helper function to get decay color based on days remaining
 function getDecayColor(days: number | undefined): string {
@@ -108,6 +109,10 @@ export const AccountCard = memo(function AccountCard({
 
   const soloEmblemSrc = rankEmblemUrl[soloTier];
   const flexEmblemSrc = rankEmblemUrl[flexTier];
+
+  // Calculer le decay ajuste en fonction du temps ecoule
+  const soloDecay = getDecayInfo(account.soloDecayDays, account.decayLastUpdated);
+  const flexDecay = getDecayInfo(account.flexDecayDays, account.decayLastUpdated);
 
   const isLoginInProgress =
     !!loginState && loginState.kind !== "error" && loginState.kind !== "success";
@@ -215,10 +220,13 @@ export const AccountCard = memo(function AccountCard({
               <span className="text-xs text-muted-foreground">
                 {(account.gamesCount ?? 0)} games
               </span>
-              {account.soloDecayDays !== undefined && account.soloDecayDays >= 0 && (
-                <span className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(account.soloDecayDays))}>
+              {soloDecay.days !== undefined && soloDecay.days >= 0 && (
+                <span
+                  className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(soloDecay.days))}
+                  title={soloDecay.isEstimate ? "Estimation basee sur le temps ecoule" : undefined}
+                >
                   <Clock className="h-3 w-3" />
-                  {account.soloDecayDays}j
+                  {soloDecay.isEstimate ? "~" : ""}{soloDecay.days}j
                 </span>
               )}
             </div>
@@ -247,10 +255,13 @@ export const AccountCard = memo(function AccountCard({
               <span className="text-xs text-muted-foreground">
                 {(account.flexGamesCount ?? 0)} games
               </span>
-              {account.flexDecayDays !== undefined && account.flexDecayDays >= 0 && (
-                <span className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(account.flexDecayDays))}>
+              {flexDecay.days !== undefined && flexDecay.days >= 0 && (
+                <span
+                  className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(flexDecay.days))}
+                  title={flexDecay.isEstimate ? "Estimation basee sur le temps ecoule" : undefined}
+                >
                   <Clock className="h-3 w-3" />
-                  {account.flexDecayDays}j
+                  {flexDecay.isEstimate ? "~" : ""}{flexDecay.days}j
                 </span>
               )}
             </div>
