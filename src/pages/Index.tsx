@@ -1134,9 +1134,9 @@ const Index = () => {
                     <SelectValue placeholder="Statut" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="chat">En ligne</SelectItem>
-                    <SelectItem value="away">Absent</SelectItem>
-                    <SelectItem value="offline">Hors ligne</SelectItem>
+                    <SelectItem value="chat">Online</SelectItem>
+                    <SelectItem value="away">Away</SelectItem>
+                    <SelectItem value="offline">Offline</SelectItem>
                     <SelectItem value="mobile">Mobile</SelectItem>
                   </SelectContent>
                 </Select>
