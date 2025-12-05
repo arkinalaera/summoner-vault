@@ -1,5 +1,6 @@
 import { Region } from "@/types/account";
-import { RankDivision,RankTier } from "@/types/account";
+import { RankDivision, RankTier } from "@/types/account";
+import { getChampionMap, getProfileIconUrl, getChampionIconUrl } from "@/lib/ddragon";
 
 // Default API key (fallback if user doesn't provide their own)
 const DEFAULT_RIOT_API_KEY = "RGAPI-62da639c-d4dc-447d-817c-538ffbbcc098";
@@ -277,8 +278,8 @@ export async function fetchSummonerData(
     const soloGames = soloQueue ? (soloQueue.wins ?? 0) + (soloQueue.losses ?? 0) : 0;
     const flexGames = flexQueue ? (flexQueue.wins ?? 0) + (flexQueue.losses ?? 0) : 0;
 
-    // Data Dragon profile icon (version can be updated dynamically if needed)
-    const iconUrl = `https://ddragon.leagueoflegends.com/cdn/15.23.1/img/profileicon/${summonerData.profileIconId}.png`;
+    // Data Dragon profile icon (version dynamique)
+    const iconUrl = getProfileIconUrl(summonerData.profileIconId);
 
     return {
       summonerName: `${accountData.gameName}#${accountData.tagLine}`,
@@ -302,32 +303,9 @@ export async function fetchSummonerData(
   }
 }
 
-// Champion data cache
-let championDataCache: Record<number, { name: string; id: string }> | null = null;
-
+// Champion data - utilise le service DDragon centralisé
 async function getChampionData(): Promise<Record<number, { name: string; id: string }>> {
-  if (championDataCache) {
-    return championDataCache;
-  }
-
-  try {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.1.1/data/en_US/champion.json');
-    const data = await response.json();
-
-    const championMap: Record<number, { name: string; id: string }> = {};
-    Object.values(data.data).forEach((champ: any) => {
-      championMap[parseInt(champ.key)] = {
-        name: champ.name,
-        id: champ.id
-      };
-    });
-
-    championDataCache = championMap;
-    return championMap;
-  } catch (error) {
-    console.error("Failed to fetch champion data:", error);
-    return {};
-  }
+  return getChampionMap();
 }
 
 export async function fetchDetailedStats(
@@ -373,7 +351,7 @@ export async function fetchDetailedStats(
           championLevel: m.championLevel,
           championPoints: m.championPoints,
           championName: champ?.name || `Champion ${m.championId}`,
-          championIcon: champ?.id ? `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champ.id}.png` : undefined
+          championIcon: champ?.id ? getChampionIconUrl(champ.id) : undefined
         };
       });
     }
@@ -434,7 +412,7 @@ export async function fetchDetailedStats(
           return {
             matchId,
             champion: champ?.name || `Champion ${participant.championId}`,
-            championIcon: champ?.id ? `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champ.id}.png` : '',
+            championIcon: champ?.id ? getChampionIconUrl(champ.id) : '',
             win,
             kills: participant.kills,
             deaths: participant.deaths,

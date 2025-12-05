@@ -26,50 +26,50 @@ interface OnboardingStep {
 const STEPS: OnboardingStep[] = [
   {
     target: "add-account",
-    title: "Ajouter un compte",
-    description: "Clique ici pour ajouter tes comptes League of Legends. Tu pourras enregistrer tes identifiants et voir tes stats.",
+    title: "Add Account",
+    description: "Click here to add your League of Legends accounts. You can save your credentials and view your stats.",
     icon: Plus,
     position: "bottom",
   },
   {
     target: "auto-accept",
     title: "Auto Accept",
-    description: "Active cette option pour accepter automatiquement les matchs quand une partie est trouvée.",
+    description: "Enable this option to automatically accept matches when a game is found.",
     icon: Check,
     position: "bottom",
   },
   {
     target: "auto-pick-ban",
     title: "Auto Pick/Ban",
-    description: "Configure le champion à pick et ban automatiquement en champion select.",
+    description: "Configure the champion to pick and ban automatically in champion select.",
     icon: Swords,
     position: "bottom",
   },
   {
     target: "availability",
-    title: "Statut en ligne",
-    description: "Change ton statut dans le client LoL (En ligne, Absent, Hors ligne, Mobile).",
+    title: "Online Status",
+    description: "Change your status in the LoL client (Online, Away, Offline, Mobile).",
     icon: Circle,
     position: "bottom",
   },
   {
     target: "decay-refresh",
     title: "Decay",
-    description: "Rafraîchis le decay du compte actuellement connecté au client LoL. Le decay est mis à jour automatiquement quand tu te connectes.",
+    description: "Refresh the decay of the account currently connected to the LoL client. Decay updates automatically when you log in.",
     icon: Clock,
     position: "bottom",
   },
   {
     target: "refresh-all",
-    title: "Rafraîchir",
-    description: "Met à jour les données de tous tes comptes via l'API Riot (rang, LP, icône...).",
+    title: "Refresh",
+    description: "Update data for all your accounts via the Riot API (rank, LP, icon...).",
     icon: RefreshCw,
     position: "bottom",
   },
   {
     target: "settings",
-    title: "Paramètres",
-    description: "Configure le chemin vers RiotClientServices.exe et ta clé API Riot Games.",
+    title: "Settings",
+    description: "Configure the path to RiotClientServices.exe and your Riot Games API key.",
     icon: Settings,
     position: "left",
   },
@@ -317,10 +317,10 @@ export function OnboardingGuide({ onComplete }: OnboardingGuideProps) {
               className="h-8 gap-1"
             >
               {currentStep === STEPS.length - 1 ? (
-                "Terminer"
+                "Finish"
               ) : (
                 <>
-                  Suivant
+                  Next
                   <ChevronRight className="h-4 w-4" />
                 </>
               )}

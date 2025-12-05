@@ -57,17 +57,17 @@ const Settings = () => {
     try {
       await window.api.setLeaguePath(nextPath);
       toast({
-        title: "Chemin sauvegardé",
-        description: "Le chemin du client Riot a été mis à jour.",
+        title: "Path saved",
+        description: "The Riot client path has been updated.",
       });
     } catch (error) {
       console.error("Failed to save League path:", error);
       toast({
-        title: "Impossible de sauvegarder le chemin",
+        title: "Unable to save path",
         description:
           error instanceof Error
             ? error.message
-            : "Une erreur inconnue est survenue.",
+            : "An unknown error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -88,8 +88,8 @@ const Settings = () => {
     const api = window.api;
     if (!api?.selectLeaguePath) {
       toast({
-        title: "Action indisponible",
-        description: "Impossible d'ouvrir la boîte de dialogue native.",
+        title: "Action unavailable",
+        description: "Unable to open native dialog.",
         variant: "destructive",
       });
       return;
@@ -105,11 +105,11 @@ const Settings = () => {
     } catch (error) {
       console.error("Failed to select League path:", error);
       toast({
-        title: "Sélection impossible",
+        title: "Selection failed",
         description:
           error instanceof Error
             ? error.message
-            : "Impossible de récupérer le chemin League of Legends.",
+            : "Unable to retrieve League of Legends path.",
         variant: "destructive",
       });
     } finally {
@@ -128,17 +128,17 @@ const Settings = () => {
       // Reload the API key in riot-api.ts
       await reloadApiKey();
       toast({
-        title: "API Key sauvegardée",
-        description: "Ta clé API Riot a été enregistrée avec succès.",
+        title: "API Key saved",
+        description: "Your Riot API key has been saved successfully.",
       });
     } catch (error) {
       console.error("Failed to save Riot API key:", error);
       toast({
-        title: "Impossible de sauvegarder l'API key",
+        title: "Unable to save API key",
         description:
           error instanceof Error
             ? error.message
-            : "Une erreur inconnue est survenue.",
+            : "An unknown error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -153,20 +153,20 @@ const Settings = () => {
           <Button variant="ghost" asChild>
             <Link to="/">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
+              Back
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold text-card-foreground">Paramètres</h1>
+          <h1 className="text-2xl font-bold text-card-foreground">Settings</h1>
         </div>
 
         <div className="bg-card rounded-xl p-6 shadow-card border border-border space-y-4">
           <div>
             <h2 className="font-semibold text-card-foreground">
-              Chemin Riot Client
+              Riot Client Path
             </h2>
             <p className="text-sm text-muted-foreground">
-              Sélectionne l'exécutable RiotClientServices.exe pour permettre
-              l'automatisation.
+              Select the RiotClientServices.exe executable to enable
+              automation.
             </p>
           </div>
 
@@ -186,23 +186,23 @@ const Settings = () => {
               className="gap-2"
             >
               <FolderOpen className="h-4 w-4" />
-              Parcourir
+              Browse
             </Button>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Ce chemin sera réutilisé lors des prochains lancements.
+            This path will be reused on future launches.
           </p>
         </div>
 
         <div className="bg-card rounded-xl p-6 shadow-card border border-border space-y-4">
           <div>
             <h2 className="font-semibold text-card-foreground">
-              Riot API Key (Optionnel)
+              Riot API Key (Optional)
             </h2>
             <p className="text-sm text-muted-foreground">
-              Entre ta propre clé API Riot Games pour éviter les limites de taux.
-              Obtiens-la sur{" "}
+              Enter your own Riot Games API key to avoid rate limits.
+              Get it at{" "}
               <a
                 href="https://developer.riotgames.com/"
                 target="_blank"
@@ -226,7 +226,7 @@ const Settings = () => {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Si vide, l'application utilisera la clé API par défaut (limites plus basses).
+            If empty, the application will use the default API key (lower rate limits).
           </p>
         </div>
 
@@ -234,10 +234,10 @@ const Settings = () => {
         <div className="bg-card rounded-xl p-6 shadow-card border border-border space-y-4">
           <div>
             <h2 className="font-semibold text-card-foreground">
-              Guide d'utilisation
+              User Guide
             </h2>
             <p className="text-sm text-muted-foreground">
-              Relance le tutoriel interactif pour découvrir les fonctionnalités de l'application.
+              Restart the interactive tutorial to discover the application's features.
             </p>
           </div>
 
@@ -245,15 +245,15 @@ const Settings = () => {
             onClick={() => {
               localStorage.removeItem('onboarding-completed');
               toast({
-                title: "Guide relancé",
-                description: "Le tutoriel va démarrer sur la page d'accueil.",
+                title: "Guide restarted",
+                description: "The tutorial will start on the home page.",
               });
               navigate('/');
             }}
             className="gap-2"
           >
             <BookOpen className="h-4 w-4" />
-            Relancer le guide
+            Restart guide
           </Button>
         </div>
 
@@ -261,11 +261,11 @@ const Settings = () => {
         <div className="bg-card rounded-xl p-6 shadow-card border border-border space-y-4">
           <div>
             <h2 className="font-semibold text-card-foreground">
-              Test API LCU - Ranked Stats
+              Test LCU API - Ranked Stats
             </h2>
             <p className="text-sm text-muted-foreground">
-              Teste les endpoints LCU pour trouver les informations de decay.
-              Le client League doit être ouvert.
+              Test LCU endpoints to retrieve decay information.
+              The League client must be open.
             </p>
           </div>
 
@@ -274,8 +274,8 @@ const Settings = () => {
               const api = window.api;
               if (!api?.getRankedStats) {
                 toast({
-                  title: "Fonctionnalité indisponible",
-                  description: "L'API de test n'est pas disponible.",
+                  title: "Feature unavailable",
+                  description: "The test API is not available.",
                   variant: "destructive",
                 });
                 return;
@@ -288,16 +288,16 @@ const Settings = () => {
                 const result = await api.getRankedStats();
                 setRankedStatsResult(JSON.stringify(result, null, 2));
                 toast({
-                  title: "Test réussi",
-                  description: "Les résultats sont affichés ci-dessous.",
+                  title: "Test successful",
+                  description: "Results are displayed below.",
                 });
               } catch (error) {
                 setRankedStatsResult(
-                  `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`
+                  `Error: ${error instanceof Error ? error.message : "Unknown error"}`
                 );
                 toast({
-                  title: "Erreur",
-                  description: "Impossible de récupérer les stats. Le client League est-il ouvert ?",
+                  title: "Error",
+                  description: "Unable to retrieve stats. Is the League client open?",
                   variant: "destructive",
                 });
               } finally {
@@ -308,7 +308,7 @@ const Settings = () => {
             className="gap-2"
           >
             <FlaskConical className="h-4 w-4" />
-            {isTestingRankedStats ? "Test en cours..." : "Tester les endpoints"}
+            {isTestingRankedStats ? "Testing..." : "Test endpoints"}
           </Button>
 
           {rankedStatsResult && (

@@ -38,7 +38,7 @@ import { Plus, Search, Filter, Settings, LogOut, RefreshCw, Circle, Smartphone, 
 import chestIcon from "/resources/chest.ico";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
-import { CHAMPIONS, getChampionById } from "@/constants/champions";
+import { getChampions, getChampionById } from "@/lib/ddragon";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 
 const Index = () => {
@@ -82,9 +82,9 @@ const Index = () => {
   const isLeaguePathMissing = leaguePath.trim().length === 0;
   const disableLoginButtons = isLeaguePathMissing || isPersistingLeaguePath;
   const loginDisabledReason = isLeaguePathMissing
-    ? "Définis d'abord le chemin League of Legends."
+    ? "Please set the League of Legends path first."
     : isPersistingLeaguePath
-    ? "Sauvegarde du chemin en cours..."
+    ? "Saving path..."
     : undefined;
 
   useEffect(() => {
@@ -177,16 +177,16 @@ const Index = () => {
 
       if (payload.kind === "error") {
         toast({
-          title: "Connexion impossible",
+          title: "Connection failed",
           description:
-            payload.message ?? "Une erreur est survenue lors de la connexion.",
+            payload.message ?? "An error occurred during connection.",
           variant: "destructive",
         });
       } else if (payload.kind === "success") {
         toast({
-          title: "Connexion lancé",
+          title: "Connection launched",
           description:
-            payload.message ?? "League of Legends traite la connexion.",
+            payload.message ?? "League of Legends is processing the connection.",
         });
 
         // After successful login, try to fetch decay info after a delay
@@ -215,8 +215,8 @@ const Index = () => {
               });
 
               toast({
-                title: "Decay mis à jour",
-                description: `Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "j" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "j" : "N/A"}`,
+                title: "Decay updated",
+                description: `Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "d" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "d" : "N/A"}`,
               });
             }
           } catch (error) {
@@ -242,7 +242,7 @@ const Index = () => {
     const unsubscribe = api.onReadyStatus((payload) => {
       if (!payload) return;
       const message =
-        payload.message ?? "Une vérification de partie a été acceptée.";
+        payload.message ?? "A ready check has been accepted.";
       if (payload.kind === "error") {
         toast({
           title: "Auto accept",
@@ -346,8 +346,8 @@ const Index = () => {
       );
 
       toast({
-        title: "Decay mis à jour automatiquement",
-        description: `${matchingAccount.summonerName} - Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "j" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "j" : "N/A"}`,
+        title: "Decay updated automatically",
+        description: `${matchingAccount.summonerName} - Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "d" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "d" : "N/A"}`,
       });
     });
 
@@ -551,8 +551,8 @@ const Index = () => {
     const api = window.api;
     if (!api?.loginAccount) {
       toast({
-        title: "Desktop API indisponible",
-        description: "La fonctionnalité de connexion est inaccessible.",
+        title: "Desktop API unavailable",
+        description: "The login feature is inaccessible.",
         variant: "destructive",
       });
       return;
@@ -560,9 +560,9 @@ const Index = () => {
 
     if (isLeaguePathMissing) {
       toast({
-        title: "Chemin League requis",
+        title: "League path required",
         description:
-          "Merci de renseigner le chemin complet vers RiotClientServices.exe avant de lancer une connexion.",
+          "Please provide the full path to RiotClientServices.exe before starting a connection.",
         variant: "destructive",
       });
       return;
@@ -574,7 +574,7 @@ const Index = () => {
         accountId: account.id,
         step: "renderer-start",
         kind: "info",
-        message: "Initialisation de la connexion",
+        message: "Initializing connection",
       },
     }));
 
@@ -590,7 +590,7 @@ const Index = () => {
       const message =
         error instanceof Error
           ? error.message
-          : "Une erreur inconnue est survenue.";
+          : "An unknown error occurred.";
       setLoginStatuses((previous) => ({
         ...previous,
         [account.id]: {
@@ -601,7 +601,7 @@ const Index = () => {
         },
       }));
       toast({
-        title: "Connexion a échouée",
+        title: "Connection failed",
         description: message,
         variant: "destructive",
       });
@@ -666,14 +666,14 @@ const Index = () => {
       setAccounts(updatedAccounts);
 
       toast({
-        title: "Comptes mis à jour",
-        description: `${accountsToRefresh.length} compte(s) rafraîchi(s) avec succès.`,
+        title: "Accounts updated",
+        description: `${accountsToRefresh.length} account(s) refreshed successfully.`,
       });
     } catch (error) {
       console.error("Failed to refresh accounts:", error);
       toast({
-        title: "Erreur de rafraîchissement",
-        description: "Impossible de mettre à jour les comptes.",
+        title: "Refresh error",
+        description: "Unable to update accounts.",
         variant: "destructive",
       });
     } finally {
@@ -718,14 +718,14 @@ const Index = () => {
       );
 
       toast({
-        title: "Compte mis à jour",
-        description: `${account.summonerName} a été rafraîchi avec succès.`,
+        title: "Account updated",
+        description: `${account.summonerName} was refreshed successfully.`,
       });
     } catch (error) {
       console.error(`Failed to refresh ${account.summonerName}:`, error);
       toast({
-        title: "Erreur de rafraîchissement",
-        description: `Impossible de mettre à jour ${account.summonerName}.`,
+        title: "Refresh error",
+        description: `Unable to update ${account.summonerName}.`,
         variant: "destructive",
       });
     } finally {
@@ -737,8 +737,8 @@ const Index = () => {
     const api = window.api;
     if (!api?.setAutoAcceptEnabled) {
       toast({
-        title: "Fonctionnalité indisponible",
-        description: "Impossible de modifier l'auto-accept sans l'API desktop.",
+        title: "Feature unavailable",
+        description: "Cannot modify auto-accept without the desktop API.",
         variant: "destructive",
       });
       return;
@@ -751,17 +751,17 @@ const Index = () => {
       toast({
         title: "Auto accept",
         description: result
-          ? "L'acceptation automatique est activée."
-          : "L'acceptation automatique est désactivée.",
+          ? "Auto-accept is enabled."
+          : "Auto-accept is disabled.",
       });
     } catch (error) {
       console.error("Failed to toggle auto accept:", error);
       toast({
-        title: "Impossible de modifier l'auto accept",
+        title: "Cannot modify auto-accept",
         description:
           error instanceof Error
             ? error.message
-            : "Erreur inconnue lors du changement d'état.",
+            : "Unknown error while changing state.",
         variant: "destructive",
       });
     } finally {
@@ -782,8 +782,8 @@ const Index = () => {
     const api = (window as any).api;
     if (!api?.setAvailability) {
       toast({
-        title: "Fonctionnalité indisponible",
-        description: "La fonctionnalité de changement de statut n'est pas disponible.",
+        title: "Feature unavailable",
+        description: "The status change feature is not available.",
         variant: "destructive",
       });
       return;
@@ -794,24 +794,24 @@ const Index = () => {
       setAvailability(newStatus);
 
       const statusLabels: Record<string, string> = {
-        chat: "En ligne",
-        away: "Absent",
-        offline: "Hors ligne",
+        chat: "Online",
+        away: "Away",
+        offline: "Offline",
         mobile: "Mobile"
       };
 
       toast({
-        title: "Statut modifié",
-        description: `Ton statut a été changé en : ${statusLabels[newStatus] || newStatus}`,
+        title: "Status changed",
+        description: `Your status has been changed to: ${statusLabels[newStatus] || newStatus}`,
       });
     } catch (error) {
       console.error("Failed to set availability:", error);
       toast({
-        title: "Échec du changement de statut",
+        title: "Status change failed",
         description:
           error instanceof Error
             ? error.message
-            : "Impossible de modifier le statut.",
+            : "Unable to change status.",
         variant: "destructive",
       });
     }
@@ -822,8 +822,8 @@ const Index = () => {
     const api = window.api;
     if (!api?.setChampionSelectSettings) {
       toast({
-        title: "Fonctionnalité indisponible",
-        description: "L'auto pick/ban n'est pas disponible.",
+        title: "Feature unavailable",
+        description: "Auto pick/ban is not available.",
         variant: "destructive",
       });
       return;
@@ -837,16 +837,16 @@ const Index = () => {
       });
       setAutoPickBanEnabled(checked);
       toast({
-        title: checked ? "Auto Pick/Ban activé" : "Auto Pick/Ban désactivé",
+        title: checked ? "Auto Pick/Ban enabled" : "Auto Pick/Ban disabled",
         description: checked
-          ? "Le pick et ban automatique sont maintenant actifs."
-          : "Le pick et ban automatique sont désactivés.",
+          ? "Automatic pick and ban are now active."
+          : "Automatic pick and ban are disabled.",
       });
     } catch (error) {
       console.error("Failed to toggle auto pick/ban:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de modifier les paramètres auto pick/ban.",
+        title: "Error",
+        description: "Unable to change auto pick/ban settings.",
         variant: "destructive",
       });
     }
@@ -870,8 +870,8 @@ const Index = () => {
       if (championId) {
         const champion = getChampionById(championId);
         toast({
-          title: "Champion à pick défini",
-          description: `${champion?.name || "Champion"} sera automatiquement pick.`,
+          title: "Pick champion set",
+          description: `${champion?.name || "Champion"} will be automatically picked.`,
         });
       }
     } catch (error) {
@@ -897,8 +897,8 @@ const Index = () => {
       if (championId) {
         const champion = getChampionById(championId);
         toast({
-          title: "Champion à ban défini",
-          description: `${champion?.name || "Champion"} sera automatiquement ban.`,
+          title: "Ban champion set",
+          description: `${champion?.name || "Champion"} will be automatically banned.`,
         });
       }
     } catch (error) {
@@ -916,8 +916,8 @@ const Index = () => {
     const api = window.api;
     if (!api?.setRiotApiKey) {
       toast({
-        title: "Erreur",
-        description: "Impossible de sauvegarder l'API key.",
+        title: "Error",
+        description: "Unable to save API key.",
         variant: "destructive",
       });
       return;
@@ -933,14 +933,14 @@ const Index = () => {
         setShowOnboarding(true);
       }
       toast({
-        title: "Bienvenue !",
-        description: "Ta clé API a été configurée avec succès.",
+        title: "Welcome!",
+        description: "Your API key has been configured successfully.",
       });
     } catch (error) {
       console.error("Failed to save API key:", error);
       toast({
-        title: "Erreur de sauvegarde",
-        description: "Impossible de sauvegarder l'API key.",
+        title: "Save error",
+        description: "Unable to save API key.",
         variant: "destructive",
       });
     } finally {
@@ -955,8 +955,8 @@ const Index = () => {
       setShowOnboarding(true);
     }
     toast({
-      title: "Configuration ignorée",
-      description: "L'application utilisera la clé API par défaut. Tu peux configurer ta propre clé dans les Paramètres.",
+      title: "Configuration skipped",
+      description: "The application will use the default API key. You can configure your own key in Settings.",
     });
   };
 
@@ -970,8 +970,8 @@ const Index = () => {
     const api = window.api;
     if (!api?.getDecayInfoWithSummoner) {
       toast({
-        title: "Fonctionnalité indisponible",
-        description: "Impossible de récupérer les infos de decay.",
+        title: "Feature unavailable",
+        description: "Unable to retrieve decay information.",
         variant: "destructive",
       });
       return;
@@ -998,8 +998,8 @@ const Index = () => {
 
       if (!matchingAccount) {
         toast({
-          title: "Compte non trouvé",
-          description: `Le compte connecté (${decayInfo.gameName || decayInfo.summonerName}) n'est pas dans ta liste de comptes.`,
+          title: "Account not found",
+          description: `The connected account (${decayInfo.gameName || decayInfo.summonerName}) is not in your account list.`,
           variant: "destructive",
         });
         return;
@@ -1019,14 +1019,14 @@ const Index = () => {
       );
 
       toast({
-        title: "Decay mis à jour",
-        description: `${matchingAccount.summonerName} - Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "j" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "j" : "N/A"}`,
+        title: "Decay updated",
+        description: `${matchingAccount.summonerName} - Solo: ${decayInfo.soloDecayDays >= 0 ? decayInfo.soloDecayDays + "d" : "N/A"} | Flex: ${decayInfo.flexDecayDays >= 0 ? decayInfo.flexDecayDays + "d" : "N/A"}`,
       });
     } catch (error) {
       console.error("Failed to refresh decay:", error);
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de récupérer les infos de decay. Vérifie que le client LoL est connecté.",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Unable to retrieve decay information. Check that the LoL client is connected.",
         variant: "destructive",
       });
     } finally {
@@ -1053,7 +1053,7 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div data-onboarding="auto-accept" className="flex items-center gap-2" title="Activer cette fonctionnalité pour accepter automatiquement les matchs">
+              <div data-onboarding="auto-accept" className="flex items-center gap-2" title="Enable this feature to automatically accept matches">
                 <Checkbox
                   id="auto-accept-header"
                   checked={autoAcceptEnabled}
@@ -1082,7 +1082,7 @@ const Index = () => {
                 <label
                   htmlFor="auto-pick-ban"
                   className="text-sm font-medium text-card-foreground cursor-pointer"
-                  title="Active le pick et ban automatique en champion select"
+                  title="Enable automatic pick and ban in champion select"
                 >
                   Auto Pick/Ban
                 </label>
@@ -1097,7 +1097,7 @@ const Index = () => {
                     <SelectValue placeholder="Pick..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    {CHAMPIONS.map((champion) => (
+                    {getChampions().map((champion) => (
                       <SelectItem key={champion.id} value={champion.id.toString()}>
                         {champion.name}
                       </SelectItem>
@@ -1115,7 +1115,7 @@ const Index = () => {
                     <SelectValue placeholder="Ban..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    {CHAMPIONS.map((champion) => (
+                    {getChampions().map((champion) => (
                       <SelectItem key={champion.id} value={champion.id.toString()}>
                         {champion.name}
                       </SelectItem>
@@ -1151,7 +1151,7 @@ const Index = () => {
                 size="icon"
                 onClick={handleRefreshConnectedDecay}
                 disabled={isRefreshingDecay}
-                title="Rafraîchir le decay du compte connecté"
+                title="Refresh decay of connected account"
               >
                 <Clock className={`h-5 w-5 ${isRefreshingDecay ? 'animate-spin' : ''}`} />
               </Button>
@@ -1161,7 +1161,7 @@ const Index = () => {
                 size="icon"
                 onClick={handleRefreshAll}
                 disabled={isRefreshing}
-                title="Rafraîchir tous les comptes"
+                title="Refresh all accounts"
               >
                 <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
@@ -1174,7 +1174,7 @@ const Index = () => {
                 variant="destructive"
                 size="icon"
                 onClick={handleQuitApp}
-                title="Quitter l'application"
+                title="Quit application"
               >
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -1335,13 +1335,13 @@ const Index = () => {
       <Dialog open={showWelcomeDialog} onOpenChange={setShowWelcomeDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Bienvenue sur LoL Account Manager ! 👋</DialogTitle>
+            <DialogTitle>Welcome to LoL Account Manager!</DialogTitle>
             <DialogDescription className="space-y-3 pt-2">
               <p>
-                Pour utiliser cette application, tu as besoin d'une <strong>clé API Riot Games</strong>.
+                To use this application, you need a <strong>Riot Games API key</strong>.
               </p>
               <p className="text-sm">
-                Tu peux obtenir ta clé gratuitement sur{" "}
+                You can get your key for free at{" "}
                 <a
                   href="https://developer.riotgames.com/"
                   target="_blank"
@@ -1352,10 +1352,10 @@ const Index = () => {
                 </a>
               </p>
               <div className="bg-muted p-3 rounded-md text-sm">
-                <p className="font-medium mb-1">Deux options :</p>
+                <p className="font-medium mb-1">Two options:</p>
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li><strong>Development Key</strong> : Gratuite, limites d'appels</li>
-                  <li><strong>Production Key</strong> : Demande d'approbation, permanente</li>
+                  <li><strong>Development Key</strong>: Free, rate limited</li>
+                  <li><strong>Production Key</strong>: Requires approval, permanent</li>
                 </ul>
               </div>
             </DialogDescription>
@@ -1364,7 +1364,7 @@ const Index = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label htmlFor="welcome-api-key" className="text-sm font-medium">
-                Clé API Riot (optionnel)
+                Riot API Key (optional)
               </label>
               <Input
                 id="welcome-api-key"
@@ -1375,7 +1375,7 @@ const Index = () => {
                 disabled={isSavingWelcomeApiKey}
               />
               <p className="text-xs text-muted-foreground">
-                Tu peux ignorer cette étape et utiliser la clé par défaut (limites plus basses).
+                You can skip this step and use the default key (lower rate limits).
               </p>
             </div>
           </div>
@@ -1386,13 +1386,13 @@ const Index = () => {
               onClick={handleSkipWelcome}
               disabled={isSavingWelcomeApiKey}
             >
-              Ignorer
+              Skip
             </Button>
             <Button
               onClick={handleSaveWelcomeApiKey}
               disabled={isSavingWelcomeApiKey || welcomeApiKey.trim().length === 0}
             >
-              {isSavingWelcomeApiKey ? "Sauvegarde..." : "Enregistrer"}
+              {isSavingWelcomeApiKey ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

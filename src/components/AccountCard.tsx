@@ -84,7 +84,7 @@ export const AccountCard = memo(function AccountCard({
     const newExpanded = !isExpanded;
     setIsExpanded(newExpanded);
 
-    // Si on expand et qu'on n'a pas encore les stats, les charger
+    // If expanding and stats not loaded yet, fetch them
     if (newExpanded && !detailedStats && !isLoadingStats) {
       setIsLoadingStats(true);
       setStatsError(null);
@@ -96,7 +96,7 @@ export const AccountCard = memo(function AccountCard({
         setStatsError(
           error instanceof Error
             ? error.message
-            : "Impossible de charger les statistiques détaillées."
+            : "Failed to load detailed statistics."
         );
       } finally {
         setIsLoadingStats(false);
@@ -110,7 +110,7 @@ export const AccountCard = memo(function AccountCard({
   const soloEmblemSrc = rankEmblemUrl[soloTier];
   const flexEmblemSrc = rankEmblemUrl[flexTier];
 
-  // Calculer le decay ajuste en fonction du temps ecoule
+  // Calculate adjusted decay based on elapsed time
   const soloDecay = getDecayInfo(account.soloDecayDays, account.decayLastUpdated);
   const flexDecay = getDecayInfo(account.flexDecayDays, account.decayLastUpdated);
 
@@ -119,12 +119,12 @@ export const AccountCard = memo(function AccountCard({
   const loginStatusMessage =
     loginState?.message ??
     (loginState?.kind === "error"
-      ? "Échec de la connexion."
+      ? "Connection failed."
       : loginState?.kind === "success"
-      ? "Connexion lancée sur League."
+      ? "Connection launched to League."
       : undefined);
   const loginButtonDisabled = loginDisabled || isLoginInProgress;
-  const loginButtonLabel = isLoginInProgress ? "Connexion..." : "Se connecter";
+  const loginButtonLabel = isLoginInProgress ? "Connecting..." : "Connect";
   const loginStatusTone =
     loginState?.kind === "error"
       ? "text-destructive"
@@ -132,7 +132,7 @@ export const AccountCard = memo(function AccountCard({
       ? "text-emerald-400"
       : "text-muted-foreground";
   const loginButtonTitle =
-    loginDisabledReason ?? (isLoginInProgress ? "Connexion en cours..." : undefined);
+    loginDisabledReason ?? (isLoginInProgress ? "Connecting..." : undefined);
 
   return (
     <div>
@@ -223,10 +223,10 @@ export const AccountCard = memo(function AccountCard({
               {soloDecay.days !== undefined && soloDecay.days >= 0 && (
                 <span
                   className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(soloDecay.days))}
-                  title={soloDecay.isEstimate ? "Estimation basee sur le temps ecoule" : undefined}
+                  title={soloDecay.isEstimate ? "Estimate based on elapsed time" : undefined}
                 >
                   <Clock className="h-3 w-3" />
-                  {soloDecay.isEstimate ? "~" : ""}{soloDecay.days}j
+                  {soloDecay.isEstimate ? "~" : ""}{soloDecay.days}d
                 </span>
               )}
             </div>
@@ -258,10 +258,10 @@ export const AccountCard = memo(function AccountCard({
               {flexDecay.days !== undefined && flexDecay.days >= 0 && (
                 <span
                   className={cn("text-xs font-medium flex items-center gap-1", getDecayColor(flexDecay.days))}
-                  title={flexDecay.isEstimate ? "Estimation basee sur le temps ecoule" : undefined}
+                  title={flexDecay.isEstimate ? "Estimate based on elapsed time" : undefined}
                 >
                   <Clock className="h-3 w-3" />
-                  {flexDecay.isEstimate ? "~" : ""}{flexDecay.days}j
+                  {flexDecay.isEstimate ? "~" : ""}{flexDecay.days}d
                 </span>
               )}
             </div>
@@ -300,7 +300,7 @@ export const AccountCard = memo(function AccountCard({
             }}
             disabled={isRefreshing}
             className="gap-1"
-            title="Rafraîchir ce compte"
+            title="Refresh this account"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
 
