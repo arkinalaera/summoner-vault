@@ -189,6 +189,15 @@ const Index = () => {
             payload.message ?? "League of Legends is processing the connection.",
         });
 
+        // Clear the success message after 5 seconds
+        setTimeout(() => {
+          setLoginStatuses((previous) => {
+            const updated = { ...previous };
+            delete updated[payload.accountId];
+            return updated;
+          });
+        }, 5000);
+
         // After successful login, try to fetch decay info after a delay
         // (wait for client to fully connect)
         setTimeout(async () => {

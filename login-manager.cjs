@@ -41,19 +41,19 @@ class LoginManager {
   async login({ accountId, login, password, leaguePath }) {
     console.log("[LoginManager]", "Trigger login", { accountId, leaguePath });
     if (!accountId) {
-      throw new Error("Identifiant de compte manquant.");
+      throw new Error("Account ID is missing.");
     }
     if (!login || !password) {
-      throw new Error("Identifiants Riot manquants pour ce compte.");
+      throw new Error("Riot credentials are missing for this account.");
     }
     if (!leaguePath) {
       throw new Error(
-        "Chemin League of Legends non configuré. Merci de l'indiquer avant de lancer une connexion."
+        "League of Legends path not configured. Please set it before logging in."
       );
     }
     if (this.currentAccountId && this.currentAccountId !== accountId) {
       throw new Error(
-        "Une autre connexion est déjà en cours. Merci d'attendre la fin de l'opération."
+        "Another login is already in progress. Please wait for it to complete."
       );
     }
 
@@ -63,46 +63,46 @@ class LoginManager {
       const riotClientPath = this.normalizePath(leaguePath);
       const lockfilePath = this.resolveLockfilePath(riotClientPath);
 
-      this.emit(accountId, "close-clients", "Fermeture des clients Riot/League existants…");
+      this.emit(accountId, "close-clients", "Closing existing Riot/League clients...");
       console.log("[LoginManager]", "Killing existing Riot processes");
       await this.closeExistingClients();
       await this.removeFileIfExists(lockfilePath);
 
       console.log("[LoginManager]", "Cleaned lockfile");
-      this.emit(accountId, "launch-client", "Lancement du Riot Client…");
+      this.emit(accountId, "launch-client", "Launching Riot Client...");
       console.log("[LoginManager]", "Launching Riot client");
       await this.launchRiotClient(riotClientPath);
 
-      this.emit(accountId, "wait-login-window", "Recherche de la fenêtre Riot Client…");
+      this.emit(accountId, "wait-login-window", "Searching for Riot Client window...");
       const riotWindow = await this.waitForLoginWindow();
       console.log("[LoginManager]", "Window detected", riotWindow?.getTitle?.());
 
-      this.emit(accountId, "focus-window", "Mise au premier plan du Riot Client…");
+      this.emit(accountId, "focus-window", "Bringing Riot Client to foreground...");
       await this.bringWindowToFront(riotWindow);
       console.log("[LoginManager]", "Window focused");
 
       await this.ensureVisualFocus();
       console.log("[LoginManager]", "Visual focus ensured");
 
-      this.emit(accountId, "type-credentials", "Saisie des identifiants…");
+      this.emit(accountId, "type-credentials", "Typing credentials...");
       await this.typeCredentials(login, password);
       console.log("[LoginManager]", "Credentials typed");
 
-      this.emit(accountId, "confirm-login", "Validation de la connexion…");
+      this.emit(accountId, "confirm-login", "Confirming login...");
       await this.launchLogin();
       console.log("[LoginManager]", "Login confirmed via Enter");
 
       this.emit(
         accountId,
         "completed",
-        "Identifiants envoyés. Vérifie le client pour confirmer la connexion.",
+        "Credentials sent. Check the client to confirm login.",
         "success"
       );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "Erreur inconnue lors de l'automatisation de la connexion.";
+          : "Unknown error during login automation.";
       this.emit(accountId, "error", message, "error");
       throw error;
     } finally {
@@ -210,7 +210,7 @@ class LoginManager {
       await sleep(WINDOW_POLL_INTERVAL_MS);
     }
     throw new Error(
-      "Impossible de détecter la fenêtre de connexion Riot. Vérifie que le client s'est bien lancé."
+      "Unable to detect Riot login window. Please check that the client has launched."
     );
   }
 

@@ -1,6 +1,6 @@
 import { Account } from "@/types/account";
 import { Button } from "./ui/button";
-import { Clipboard, Edit2, Trash2, RefreshCw, ChevronDown, ChevronUp, GripVertical, Clock } from "lucide-react";
+import { Clipboard, Edit2, Trash2, RefreshCw, ChevronDown, ChevronUp, GripVertical, Clock, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { rankEmblemUrl } from "@/lib/rank";
@@ -271,11 +271,11 @@ export const AccountCard = memo(function AccountCard({
 
       {/* Actions */}
       <div className="ml-auto flex flex-col gap-3 md:flex-row md:items-center md:gap-4 pr-12">
-        <div className="flex flex-col gap-1 min-w-[170px]">
+        <div className="relative">
           <Button
             type="button"
             size="sm"
-            className="gap-2 bg-blue-600 hover:bg-blue-700"
+            className="gap-2 bg-green-600 hover:bg-green-700 w-[140px]"
             onClick={(e) => {
               e.stopPropagation();
               onLogin(account);
@@ -283,10 +283,11 @@ export const AccountCard = memo(function AccountCard({
             disabled={loginButtonDisabled}
             title={loginButtonTitle}
           >
+            <LogIn className="w-4 h-4" />
             {loginButtonLabel}
           </Button>
           {loginStatusMessage && (
-            <span className={cn("text-xs", loginStatusTone)}>{loginStatusMessage}</span>
+            <span className={cn("text-xs absolute right-0 top-full mt-1 whitespace-nowrap", loginStatusTone)}>{loginStatusMessage}</span>
           )}
         </div>
 
